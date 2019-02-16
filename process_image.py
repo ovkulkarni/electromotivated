@@ -167,8 +167,23 @@ class Vertex:
         return str(self.adjs)
 
 
-def build_graph(corners, segments):
+def build_graph(raw_corners, segments):
     vs = []
+
+    uf = UnionFind(list(range(len(raw_corners))))
+    for a in range(len(raw_corners)):
+        for b in range(len(raw_corners)):
+            dis = dist(*raw_corners[a], *raw_corners[b])
+            if dis < 10:
+                uf.union(a, b)
+
+    corners = []
+    for conn in uf.components():
+        cx = sum(raw_corners[i][0] for i in conn) // len(conn)
+        cy = sum(raw_corners[i][1] for i in conn) // len(conn)
+        corners.append((cx, cy))
+    corners = raw_corners
+
     for c in corners:
         v = Vertex(len(vs), c)
         vs.append(v)
@@ -183,7 +198,7 @@ def build_graph(corners, segments):
                 if not min_corner_dist or dis < min_corner_dist:
                     min_corner = e
                     min_corner_dist = dis
-            if min_corner_dist <= 50:
+            if min_corner_dist <= 75:
                 seg_corners.append(min_corner)
         if len(seg_corners) == 2:
             a, b = tuple(seg_corners)
@@ -253,11 +268,11 @@ def component_edges(graph, img=None):
 
     colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255),
               (255, 255, 0), (0, 255, 255), (255, 0, 255)]
-    for e, line in enumerate(all_edges):
-        color = colors[e % len(colors)]
-        cv2.line(img, tuple(graph[line[0]].loc), tuple(
-            graph[line[1]].loc), color, 2)
-    #show_imgs(img)
+    for e, conn in enumerate(connecteds):
+        for v in conn:
+            color = colors[e % len(colors)]
+            cv2.circle(img, graph[v].loc, 6, color, -1)
+    show_imgs(img)
 
     def edge_depth(edge):
         a, b = tuple(edge)
@@ -394,9 +409,10 @@ def build_circuit(graph, cedges, line_pairs, components):
     return ns
 
 
-def show_imgs(*imgs):
+def show_imgs(*imgs, names=None):
     for e, img in enumerate(imgs):
-        cv2.imshow(str(e), img)
+        name = str(e) if names is None else names[e]
+        cv2.imshow(name, img)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
@@ -425,16 +441,23 @@ if __name__ == "__main__":
         components = classify_components(post_img, cedges, graph)
         circuit = build_circuit(graph, cedges, line_pairs, components)
 
-        visualize = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
         colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255),
                   (255, 255, 0), (0, 255, 255), (255, 0, 255)]
+
+        raw_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+        for corner in corners:
+            cv2.circle(raw_img, corner, 6, colors[0], -1)
+        for line in line_segments:
+            cv2.line(raw_img, tuple(line[0]), tuple(line[1]), colors[1], 2)
+
+        visualize = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
         for e, (line, lp) in enumerate(zip(cedges, line_pairs)):
             color = colors[e % len(colors)]
             cv2.line(visualize, tuple(graph[line[0]].loc), tuple(
                 graph[line[1]].loc), color, 2)
-            #for l in lp:
+            # for l in lp:
             #    cv2.line(visualize, tuple(graph[l[0]].loc), tuple(
             #        graph[l[1]].loc), color, 2)
 
-        show_imgs(visualize)
+        show_imgs(raw_img, visualize, names=["raw", str(i)])
         # print(components)
