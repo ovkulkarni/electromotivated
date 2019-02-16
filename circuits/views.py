@@ -20,8 +20,24 @@ class CircuitImageView(LoginRequiredMixin, View):
         return resp
 
 
-def get_range(out, k):
-    return max(node.loc[k] for index, node in out if node.loc) - min(node.loc[k] for index, node in out if node.loc)
+def align_points(out, k):
+    out.sort(key=lambda l: l.loc[k] if l.loc else 9999999)
+    working = []
+    for i in range(len(out)):
+        if not out[i].loc:
+            break
+        working.append((i, out[i]))
+        k_coords = [node.loc[k] for index, node in working if node.loc]
+        if max(k_coords) - min(k_coords) <= 75:
+            continue
+        avg = sum(node.loc[k] for index, node in working[:-1]) // len(working[:-1])
+        for index, node in working[:-1]:
+            out[index].loc[k] = avg 
+        working = [working[-1]]
+    if working:
+        avg = sum(node.loc[k] for index, node in working) // len(working)
+        for index, node in working:
+            out[index].loc[k] = avg
 
 class CircuitDetailsView(LoginRequiredMixin, View):
 
@@ -30,55 +46,13 @@ class CircuitDetailsView(LoginRequiredMixin, View):
         circuit = get_object_or_404(Circuit, uuid=uuid)
         s = ""
         if circuit.node_set.count() == 0:
-            indices = {}
             out = process(imread(circuit.original_image.path, 0))
-            for i in range(len(out)):
-                indices[i] = out[i]
             for node in out:
                 node.loc = list(node.loc) if node.loc else None
-            out.sort(key=lambda l: l.loc[0] if l.loc else 9999999)
-            a = []
-            for i in range(len(out)):
-                if out[i].loc:
-                    a.append((i, out[i]))
-                else: break
-                if get_range(a, 0) <= 75:
-                    continue
-                b = a[:-1]
-                avg = sum(node.loc[0] for index, node in b) // len(b)
-                print(avg)
-                for index, node in b:
-                    out[index].loc[0] = avg 
-                a = [a[-1]]
-            if a:
-                b = a[:]
-                avg = sum(node.loc[0] for index, node in b) // len(b)
-                print(avg)
-                for index, node in b:
-                    out[index].loc[0] = avg
-            out.sort(key=lambda l: l.loc[1] if l.loc else 9999999)
-            a = []
-            for i in range(len(out)):
-                if out[i].loc:
-                    a.append((i, out[i]))
-                else: break
-                if get_range(a, 1) <= 75:
-                    continue
-                b = a[:-1]
-                avg = sum(node.loc[1] for index, node in b) // len(b)
-                print(avg)
-                for index, node in b:
-                    out[index].loc[1] = avg 
-                a = [a[-1]]
-            if a:
-                b = a[:]
-                avg = sum(node.loc[1] for index, node in b) // len(b)
-                print(avg)
-                for index, node in b:
-                    out[index].loc[1] = avg
-            for i in indices:   
-                out[i] = indices[i]
-                print(out[i].loc)
+            save = {i: out[i] for i in range(len(out))}
+            align_points(out, 0)
+            align_points(out, 1)
+            out = [save[i] for i in save]
             for node in out:
                 node.object = Node.objects.create(
                     circuit=circuit, node_type=node.component, x=node.loc[0] if node.loc else None, y=node.loc[1] if node.loc else None)
