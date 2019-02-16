@@ -334,4 +334,5 @@ if __name__ == "__main__":
             for v in c.vset:
                 cv2.circle(line_img, graph[v].loc, 6, color, -1)
 
+        print(components)
         show_imgs(bounding_img)
