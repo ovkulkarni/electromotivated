@@ -122,7 +122,7 @@ def classify_components(img, cedges, graph):
         p1 = ((a - midpoint)*scale) + midpoint
         p2 = midpoint - ((a - midpoint)*scale)
         locs.append((tuple(np.int0(p1)), tuple(np.int0(p2))))
-        midpoints.append(midpoint)
+        midpoints.append(tuple(np.int0(midpoint)))
 
     for loc in locs: # connect the contours completely
         cv2.line(img, loc[0], loc[1], 255, 10)
@@ -130,19 +130,21 @@ def classify_components(img, cedges, graph):
         cv2.circle(img, loc[1], 15, 0, -1)
 
     # contour the image:
-    components = []
+    components = {}
     contours, _ = cv2.findContours(img, 1, 2)
     for cnt in contours:
         validContour = False
+        my_mid = None
         for mid in midpoints:
-            if cv2.pointPolygonTest(cnt,tuple(np.int0(mid)),False) >= 0:
+            if cv2.pointPolygonTest(cnt,mid,False) >= 0:
                 validContour = True
+                my_mid = mid
 
         if validContour:
             x,y,w,h = cv2.boundingRect(cnt)
-            components.append(identify_component(original_img[y:y+h, x:x+w]))
+            components[my_mid] = identify_component(original_img[y:y+h, x:x+w])
 
-    return components
+    return [components.get(m, 'undefined') for m in midpoints]
 
 def dist(x1, y1, x2, y2):
     return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
@@ -332,5 +334,4 @@ if __name__ == "__main__":
             for v in c.vset:
                 cv2.circle(line_img, graph[v].loc, 6, color, -1)
 
-        # show_imgs(bounding_img)
-        print(components)
+        show_imgs(bounding_img)
