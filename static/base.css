@@ -1,8 +1,14 @@
 .row {
-    margin-top: 2rem;
+    margin-bottom: 2rem;
     /* margin-bottom: 2rem; */
 }
 
 .jumbotron {
-    min-height: 75%;
+    height: calc(80% + 56px);
+    overflow-y: scroll;
+    margin-top: 2rem;
+}
+
+html {
+    overflow: hidden
 }

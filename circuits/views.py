@@ -10,6 +10,9 @@ from process_image import process
 
 from cv2 import imread
 
+from render_circuit import render_image
+import re
+
 
 class CircuitImageView(LoginRequiredMixin, View):
     def get(self, request, *args, **kwargs):
@@ -20,27 +23,23 @@ class CircuitImageView(LoginRequiredMixin, View):
         return resp
 
 
-def align_points(out, k):
-    out.sort(key=lambda l: l.loc[k] if l.loc else 9999999)
-    working = []
-    for i in range(len(out)):
-        if not out[i].loc:
-            break
-        working.append((i, out[i]))
-        k_coords = [node.loc[k] for index, node in working if node.loc]
-        if max(k_coords) - min(k_coords) <= 75:
-            continue
-        avg = sum(node.loc[k] for index, node in working[:-1]) // len(working[:-1])
-        for index, node in working[:-1]:
-            out[index].loc[k] = avg 
-        working = [working[-1]]
-    if working:
-        avg = sum(node.loc[k] for index, node in working) // len(working)
-        for index, node in working:
-            out[index].loc[k] = avg
+class CircuitProcessedImageView(LoginRequiredMixin, View):
+    def get(self, request, *args, **kwargs):
+        uuid = kwargs.get('uuid', -1)
+        circuit = get_object_or_404(Circuit, uuid=uuid)
+        if not circuit.processed_image:
+            new_fn = '{}.processed.svg'.format(
+                circuit.original_image.path.rsplit('.', 1)[0])
+            render_image(circuit.original_image.path, new_fn)
+            circuit.processed_image = new_fn
+            circuit.save()
+        resp = HttpResponse()
+        resp.content = re.sub(r'height=".*?"', 'height="95%"', re.sub(r'width=".*?"', 'width="100%"', circuit.processed_image.read().decode().replace(
+            '<svg', '<svg preserveAspectRatio="xMidYMin"'))).encode()
+        return resp
+
 
 class CircuitDetailsView(LoginRequiredMixin, View):
-
     def get(self, request, *args, **kwargs):
         uuid = kwargs.get('uuid', -1)
         circuit = get_object_or_404(Circuit, uuid=uuid)
@@ -49,10 +48,6 @@ class CircuitDetailsView(LoginRequiredMixin, View):
             out = process(imread(circuit.original_image.path, 0))
             for node in out:
                 node.loc = list(node.loc) if node.loc else None
-            save = {i: out[i] for i in range(len(out))}
-            align_points(out, 0)
-            align_points(out, 1)
-            out = [save[i] for i in save]
             for node in out:
                 node.object = Node.objects.create(
                     circuit=circuit, node_type=node.component, x=node.loc[0] if node.loc else None, y=node.loc[1] if node.loc else None)
