@@ -26,9 +26,8 @@ def identify_component(component_img, is_horizontal):
             return 'voltimeter/ammeter'
 
     # check for resistor:
-    color_img = cv2.cvtColor(component_img, cv2.COLOR_GRAY2BGR)
-
-    resistor_img = cv2.erode(component_img, np.ones((9, 9)))
+    resistor_img = cv2.erode(component_img, np.ones((7, 7)))
+    # color_img = cv2.cvtColor(resistor_img, cv2.COLOR_GRAY2BGR)
 
     contours, _ = cv2.findContours(resistor_img, 1, 2)
     if len(contours) == 1:
@@ -40,8 +39,6 @@ def identify_component(component_img, is_horizontal):
             approx = sorted(approx, key=lambda x: x[0][0])
             going_up = approx[0][0][1] - approx[1][0][1] > 0
             for p1, p2 in zip(approx, approx[1:]):
-                cv2.line(color_img, tuple(np.int0(p1)[0]),
-                         tuple(np.int0(p2)[0]), (255, 0, 0), 2)
                 if going_up != (p2[0][1] - p1[0][1] > 0):
                     going_up = not going_up
                     count += 1
@@ -49,8 +46,6 @@ def identify_component(component_img, is_horizontal):
             approx = sorted(approx, key=lambda x: x[0][1])
             going_up = approx[0][0][0] - approx[1][0][0] > 0
             for p1, p2 in zip(approx, approx[1:]):
-                cv2.line(color_img, tuple(np.int0(p1)[0]),
-                         tuple(np.int0(p2)[0]), (255, 0, 0), 2)
                 if going_up != (p2[0][0] - p1[0][0] > 0):
                     going_up = not going_up
                     count += 1

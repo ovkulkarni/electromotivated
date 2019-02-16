@@ -39,6 +39,8 @@ def detect_graph_components(img):
 
     circles_img = np.copy(img)
 
+    inductor_img = np.copy(img)
+
     line_img = np.copy(eroded_img)
     resps = cv2.dilate(resps, np.ones((9, 9)), iterations=1)
     line_img[resps > threshold * resps.max()] = 0.
@@ -71,21 +73,45 @@ def detect_graph_components(img):
     resistor_img = cv2.morphologyEx(
         resistor_img, cv2.MORPH_OPEN, np.ones((21, 21)), iterations=1)
 
+    # find the inductors:
+    inductor_img = cv2.morphologyEx(
+        inductor_img, cv2.MORPH_CLOSE, np.ones((9,9)), iterations=2)
+    inductor_img = cv2.erode(inductor_img, np.ones((17,17)))
+    inductor_img = cv2.morphologyEx(
+        inductor_img, cv2.MORPH_CLOSE, np.ones((21,21)), iterations=2)
+
+    contours, _ = cv2.findContours(inductor_img, 1, 2)
+    inductor_mask = inductor_img*0
+    for cnt in contours:
+        x, y, w, h = cv2.boundingRect(cnt)
+        if (w*h > 1500):
+            cv2.drawContours(inductor_mask, [cnt], -1, 255, -1)
+    inductor_mask = cv2.dilate(inductor_mask, np.ones((9,9)))
+
     # find the circles:
     circles_img = cv2.morphologyEx(
-        circles_img, cv2.MORPH_CLOSE, np.ones((5, 5)), iterations=5)
-    circles_img = cv2.morphologyEx(
-        circles_img, cv2.MORPH_OPEN, np.ones((20, 20)), iterations=1)
+        circles_img, cv2.MORPH_CLOSE, np.ones((5, 5)), iterations=3)
+
+    contours, _ = cv2.findContours(255-circles_img, 1, 2)
+    for cnt in contours:
+        if cv2.contourArea(cnt) < 5000:
+            cv2.drawContours(circles_img, [cnt], -1, 255, -1)
+    circles_img = cv2.erode(circles_img, np.ones((21,21)))
+
     contours, _ = cv2.findContours(circles_img, 1, 2)
     for cnt in contours:
         area = cv2.contourArea(cnt)
         arclen = cv2.arcLength(cnt, True)
+        if arclen == 0:
+            continue
         circularity = (4 * np.pi * area) / (arclen * arclen)
-        if (circularity < .85):
+        if (circularity < .75):
             cv2.drawContours(circles_img, [cnt], -1, 0, -1)
+    circles_img = cv2.dilate(circles_img, np.ones((21,21)))
+
 
     _, line_img = cv2.threshold(
-        line_img-resistor_img-circles_img, 2, 255, cv2.THRESH_BINARY)
+        line_img-(resistor_img | circles_img | inductor_mask), 2, 255, cv2.THRESH_BINARY)
 
     # find lines
     contours, _ = cv2.findContours(line_img, 1, 2)
@@ -130,6 +156,7 @@ def classify_components(img, cedges, graph):
         orientations[tuple(np.int0(midpoint))] = abs(
             a[0] - b[0]) > abs(a[1] - b[1])
 
+    img = np.copy(img)
     for loc in locs:  # connect the contours completely
         cv2.line(img, loc[0], loc[1], 255, 10)
         cv2.circle(img, loc[0], 15, 0, -1)
@@ -146,10 +173,12 @@ def classify_components(img, cedges, graph):
                 validContour = True
                 my_mid = mid
 
-        if validContour:
+        if validContour and my_mid not in components:
             x, y, w, h = cv2.boundingRect(cnt)
             components[my_mid] = identify_component(
                 original_img[y:y+h, x:x+w], orientations[my_mid])
+            print(components[my_mid])
+            show_imgs(original_img[y:y+h, x:x+w])
     return [components.get(m, 'undefined') for m in midpoints]
 
 
@@ -272,7 +301,7 @@ def component_edges(graph, img=None):
         for v in conn:
             color = colors[e % len(colors)]
             cv2.circle(img, graph[v].loc, 6, color, -1)
-    show_imgs(img)
+    # show_imgs(img)
 
     def edge_depth(edge):
         a, b = tuple(edge)
@@ -429,7 +458,7 @@ def process(img):
 
 
 if __name__ == "__main__":
-    for i in range(6, 18):
+    for i in range(1,18): #[15,17]:
         img = cv2.imread("imgs/{}.JPG".format(i), 0)
         img = resize_image(img)
         # img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
@@ -459,5 +488,6 @@ if __name__ == "__main__":
             #    cv2.line(visualize, tuple(graph[l[0]].loc), tuple(
             #        graph[l[1]].loc), color, 2)
 
-        show_imgs(raw_img, visualize, names=["raw", str(i)])
-        # print(components)
+        # show_imgs(raw_img, visualize, names=["raw", str(i)])
+        print(components)
+        show_imgs(visualize, names=[str(i)])
