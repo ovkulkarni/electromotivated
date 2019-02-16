@@ -1,6 +1,8 @@
 import cv2
 import numpy as np
 from itertools import combinations
+from collections import deque, namedtuple
+from unionfind import UnionFind
 
 
 def resize_image(img):
@@ -107,7 +109,8 @@ def build_graph(corners, segments):
     return vs
 
 
-def broken_components(graph):
+def component_edges(graph):
+    print(graph)
     vset = set(range(len(graph)))
     connecteds = []
     while vset:
@@ -124,8 +127,53 @@ def broken_components(graph):
         if len(conn) >= 3:
             connecteds.append(conn)
 
-    
-    return connecteds
+    leaf_nodes = set()
+    leaf_edges = set()
+    leaf_adjs = {}
+    for conn in connecteds:
+        leaves = set()
+        for v in conn:
+            if len(graph[v].adjs) == 1:
+                leaves.add(v)
+        q = deque()
+        for leaf in leaves:
+            q.append((0, leaf))
+        while q:
+            depth, v = q.popleft()
+            if depth == 2:
+                break
+            for a in graph[v].adjs:
+                if a not in leaf_nodes:
+                    leaf_nodes.add(a)
+
+                    if a not in leaf_adjs:
+                        leaf_adjs[a] = set()
+                    if v not in leaf_adjs:
+                        leaf_adjs[v] = set()
+                    leaf_adjs[a].add(v)
+                    leaf_adjs[v].add(a)
+                    leaf_edges.add(frozenset([v, a]))
+
+                    q.append((depth + 1, a))
+
+    uf = UnionFind(leaf_nodes)
+    for a, b in leaf_edges:
+        uf.union(a, b)
+
+    leaf_node_connecteds = uf.components()
+    leaf_sects = []
+    LeafSect = namedtuple("LeafSect", ["vset", "lset"])
+    for conn in leaf_node_connecteds:
+        lset = set()
+        for v in conn:
+            for a in leaf_adjs[v]:
+                lset.add(frozenset([v, a]))
+        lset = {tuple(fs) for fs in lset}
+        leaf_sects.append(LeafSect(conn, lset))
+
+    print(leaf_sects)
+
+    return leaf_sects
 
 
 def show_imgs(*imgs):
@@ -136,21 +184,27 @@ def show_imgs(*imgs):
 
 
 if __name__ == "__main__":
-    for i in range(1, 7):
+    for i in range(1, 5):
         img = cv2.imread("imgs/{}.JPG".format(i), 0)
         img = resize_image(img)
         post_img = clean_image(img)
         corners, line_segments = detect_graph_components(post_img)
         graph = build_graph(corners, line_segments)
-        components = broken_components(graph)
-        #print(components)
+        leaf_sects = component_edges(graph)
+        # print(components)
 
         line_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
         colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255),
                   (255, 255, 0), (0, 255, 255), (255, 0, 255)]
-        for e, c in enumerate(components):
+        for e, c in enumerate(leaf_sects):
             color = colors[e % len(colors)]
-            for v in c:
+            for v in c.vset:
                 cv2.circle(line_img, graph[v].loc, 6, color, -1)
+        """
+        for v in leaf_nodes:
+            cv2.circle(line_img, graph[v].loc, 6, (255, 0, 0), -1)
+        for v in set(range(len(graph))) - leaf_nodes:
+            cv2.circle(line_img, graph[v].loc, 6, (0, 255, 0), -1)
+        """
 
         show_imgs(img, line_img)
