@@ -56,12 +56,12 @@ def identify_component(component_img, circles_component, is_horizontal):
         relevant_img = cv2.morphologyEx(component_img, cv2.MORPH_OPEN, kernel)
         real_contours, _ = cv2.findContours(relevant_img, 1, 2)
         if len(real_contours):
-            largest = max(max(w, h) for x, y, w, h in [cv2.boundingRect(cnt)
-                                                       for cnt in real_contours])
-            smallest = min(max(w, h) for x, y, w, h in [cv2.boundingRect(cnt)
-                                                        for cnt in real_contours])
-            if largest / smallest > 1.5:
-                # battery:
+            largest = max((cv2.boundingRect(cnt) for cnt in real_contours),
+                          key=lambda x: max(x[2], x[3]))
+            smallest = min((cv2.boundingRect(cnt) for cnt in real_contours),
+                          key=lambda x: max(x[2], x[3]))
+            if max(largest[2], largest[3]) / max(smallest[2], smallest[3]) > 1.5:
+                return 'battery'
             else:
                 return 'capacitor'
     return 'evan is gay'
