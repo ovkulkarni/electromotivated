@@ -66,13 +66,18 @@ def detect_graph_components(img):
                 corners.append(tuple(np.int0((box[i] + box[j]) / 2)))
 
     # find the resistors:
-    resistor_img = cv2.morphologyEx(resistor_img, cv2.MORPH_CLOSE, np.ones((11,11)), iterations=3)
-    resistor_img = cv2.morphologyEx(resistor_img, cv2.MORPH_OPEN, np.ones((9,9)), iterations=2)
-    resistor_img = cv2.morphologyEx(resistor_img, cv2.MORPH_OPEN, np.ones((21,21)), iterations=1)
+    resistor_img = cv2.morphologyEx(
+        resistor_img, cv2.MORPH_CLOSE, np.ones((11, 11)), iterations=3)
+    resistor_img = cv2.morphologyEx(
+        resistor_img, cv2.MORPH_OPEN, np.ones((9, 9)), iterations=2)
+    resistor_img = cv2.morphologyEx(
+        resistor_img, cv2.MORPH_OPEN, np.ones((21, 21)), iterations=1)
 
     # find the circles:
-    circles_img = cv2.morphologyEx(circles_img, cv2.MORPH_CLOSE, np.ones((5,5)), iterations=5)
-    circles_img = cv2.morphologyEx(circles_img, cv2.MORPH_OPEN, np.ones((20,20)), iterations=1)
+    circles_img = cv2.morphologyEx(
+        circles_img, cv2.MORPH_CLOSE, np.ones((5, 5)), iterations=5)
+    circles_img = cv2.morphologyEx(
+        circles_img, cv2.MORPH_OPEN, np.ones((20, 20)), iterations=1)
     contours, _ = cv2.findContours(circles_img, 1, 2)
     for cnt in contours:
         area = cv2.contourArea(cnt)
@@ -81,7 +86,8 @@ def detect_graph_components(img):
         if (circularity < .85):
             cv2.drawContours(circles_img, [cnt], -1, 0, -1)
 
-    _, line_img = cv2.threshold(line_img-resistor_img-circles_img, 2, 255, cv2.THRESH_BINARY)
+    _, line_img = cv2.threshold(
+        line_img-resistor_img-circles_img, 2, 255, cv2.THRESH_BINARY)
 
     # find lines
     contours, _ = cv2.findContours(line_img, 1, 2)
@@ -108,12 +114,11 @@ def detect_graph_components(img):
 def classify_components(img, cedges, graph):
     locations = [(tuple(graph[line[0]].loc), tuple(graph[line[1]].loc))
                  for line in cedges]
-    locations = list(set(tuple(sorted(l)) for l in locations)) # unique locations
 
     original_img = np.copy(img)
 
     # stretch the lengths by 20%
-    locs = [] # sorry :(
+    locs = []  # sorry :(
     midpoints = []
     for loc in locations:
         a, b = map(np.array, loc)
@@ -124,7 +129,7 @@ def classify_components(img, cedges, graph):
         locs.append((tuple(np.int0(p1)), tuple(np.int0(p2))))
         midpoints.append(tuple(np.int0(midpoint)))
 
-    for loc in locs: # connect the contours completely
+    for loc in locs:  # connect the contours completely
         cv2.line(img, loc[0], loc[1], 255, 10)
         cv2.circle(img, loc[0], 15, 0, -1)
         cv2.circle(img, loc[1], 15, 0, -1)
@@ -136,15 +141,16 @@ def classify_components(img, cedges, graph):
         validContour = False
         my_mid = None
         for mid in midpoints:
-            if cv2.pointPolygonTest(cnt,mid,False) >= 0:
+            if cv2.pointPolygonTest(cnt, mid, False) >= 0:
                 validContour = True
                 my_mid = mid
 
         if validContour:
-            x,y,w,h = cv2.boundingRect(cnt)
+            x, y, w, h = cv2.boundingRect(cnt)
             components[my_mid] = identify_component(original_img[y:y+h, x:x+w])
 
     return [components.get(m, 'undefined') for m in midpoints]
+
 
 def dist(x1, y1, x2, y2):
     return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
@@ -250,13 +256,14 @@ def component_edges(graph):
 
     unsolved_sects = set(range(len(leaf_sects)))
 
-    #print(leaf_sects)
-    component_edges = set()
+    # print(leaf_sects)
+    component_edges = {}
     for a_ix in unsolved_sects:
         a = leaf_sects[a_ix]
         edge_options = []
         for b_ix in unsolved_sects:
-            if a_ix == b_ix: continue
+            if a_ix == b_ix:
+                continue
             b = leaf_sects[b_ix]
             for la in a.lset:
                 va, sa, ia = slope_intercept(la)
@@ -278,15 +285,23 @@ def component_edges(graph):
                         continue
                     err = (sa - sb) ** 2 + (ia - ib) ** 2
 
-                    edge_options.append((err, min_edge))
+                    edge_options.append((err, min_edge, (la, lb)))
 
         edges_to_take = int(0.9 + len(a.lset) / 3)
-        #print(edges_to_take)
-        for err, edge in sorted(edge_options)[:edges_to_take]:
-            #print(edge)
-            component_edges.add(edge)
+        # print(edges_to_take)
+        for err, edge, line_pair in sorted(edge_options)[:edges_to_take]:
+            # print(edge)
+            component_edges[edge] = line_pair
 
-    return leaf_sects, component_edges
+    deduped_cedges = list(set(tuple(sorted(l))
+                              for l in component_edges.keys()))
+    line_pairs = []
+    for key in deduped_cedges:
+        if key not in component_edges:
+            key = (key[1], key[0])
+        line_pairs.append(component_edges[key])
+
+    return leaf_sects, (deduped_cedges, line_pairs)
 
 
 def slope_intercept(line):
@@ -303,11 +318,76 @@ def slope_intercept(line):
     return vert, slope, intercept
 
 
+class Node:
+    def __init__(self, index, component, loc=None, adjs=None):
+        self.index = index
+        self.loc = loc
+        self.component = component
+        self.adjs = adjs if adjs is not None else []
+
+    def __repr__(self):
+        return "({} [{}]: {})".format(self.index, self.component, self.adjs)
+
+
+def build_circuit(graph, cedges, components):
+    ns = []
+    index_map = {}
+    reverse_index_map = {}
+
+    def get_corner(o_ix):
+        if o_ix not in index_map:
+            corner_node = Node(len(ns), "corner", graph[o_ix].loc)
+            index_map[o_ix] = len(ns)
+            reverse_index_map[len(ns)] = o_ix
+            ns.append(corner_node)
+            return corner_node
+        else:
+            return ns[index_map[o_ix]]
+
+    q = deque()
+    for e, (cedge, comp_name) in enumerate(zip(cedges[0], components)):
+        node = Node(len(ns), comp_name)
+        ns.append(node)
+        node.adjs = []
+        for pt in cedge:
+            corner_node = get_corner(pt)
+            for line in cedges[1][e]:
+                if pt in line:
+                    next_pt = line[0] if line[0] != pt else line[1]
+                    next_corner = get_corner(next_pt)
+                    corner_node.adjs = [node.index, next_corner.index]
+                    q.append(next_corner.index)
+            node.adjs.append(index_map[pt])
+
+    while q:
+        node = ns[q.popleft()]
+        o_ix = reverse_index_map[node.index]
+        for a in graph[o_ix].adjs:
+            add_to_q = (a not in index_map)
+            adj_corner = get_corner(a)
+            node.adjs.append(adj_corner.index)
+            if add_to_q:
+                q.append(adj_corner.index)
+
+    return ns
+
+
 def show_imgs(*imgs):
     for e, img in enumerate(imgs):
         cv2.imshow(str(e), img)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
+
+
+def process(img):
+    img = resize_image(img)
+    post_img = clean_image(img)
+    corners, line_segments = detect_graph_components(post_img)
+    graph = build_graph(corners, line_segments)
+    _, cedges = component_edges(graph)
+    components = classify_components(post_img, cedges[0], graph)
+    circuit = build_circuit(graph, cedges, components)
+    return circuit
 
 
 if __name__ == "__main__":
@@ -318,20 +398,18 @@ if __name__ == "__main__":
         corners, line_segments = detect_graph_components(post_img)
         graph = build_graph(corners, line_segments)
         leaf_sects, cedges = component_edges(graph)
-        components = classify_components(post_img, cedges, graph)
-        # print(cedges)
-        # print(components)
+        components = classify_components(post_img, cedges[0], graph)
+        circuit = build_circuit(graph, cedges, components)
 
-        line_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-        bounding_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-        for line in cedges:
-            cv2.line(line_img, tuple(graph[line[0]].loc), tuple(
+        visualize = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+        for line in cedges[0]:
+            cv2.line(visualize, tuple(graph[line[0]].loc), tuple(
                 graph[line[1]].loc), (0, 0, 255), 2)
         colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255),
                   (255, 255, 0), (0, 255, 255), (255, 0, 255)]
-        for e, c in enumerate(leaf_sects):
-            color = colors[e % len(colors)]
-            for v in c.vset:
-                cv2.circle(line_img, graph[v].loc, 6, color, -1)
+        for e, n in enumerate(circuit):
+            color = colors[0]  # [e % len(colors)]
+            cv2.circle(visualize, n.loc, 6, color, -1)
 
-        show_imgs(bounding_img)
+        show_imgs(visualize)
+        # print(components)
