@@ -6,7 +6,7 @@ from unionfind import UnionFind
 
 
 def resize_image(img):
-    scale = np.sqrt(3e5 / (img.shape[0] * img.shape[1]))
+    scale = np.sqrt(4e5 / (img.shape[0] * img.shape[1]))
     new_bounds = (int(img.shape[1] * scale), int(img.shape[0] * scale))
     img = cv2.resize(img, new_bounds, interpolation=cv2.INTER_CUBIC)
     return img
@@ -15,7 +15,7 @@ def resize_image(img):
 def clean_image(img):
     img = cv2.GaussianBlur(img, (5, 5), 0)
     img = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_MEAN_C,
-                                cv2.THRESH_BINARY_INV, 25, 50)
+                                cv2.THRESH_BINARY_INV, 25, 30)
     img = cv2.morphologyEx(img, cv2.MORPH_CLOSE, np.ones((7, 7)))
     img = cv2.dilate(img, np.ones((5, 5)), iterations=2)
     return img
@@ -26,25 +26,44 @@ def detect_graph_components(img):
     aperture = 15
     free_parameter = 0.04
 
-    img = cv2.erode(img, np.ones((9, 9)), iterations=1)
+    eroded_img = cv2.erode(img, np.ones((9, 9)), iterations=1)
 
-    resps = cv2.cornerHarris(img, block_size, aperture, free_parameter)
-    resps = cv2.dilate(resps, None, iterations=8)
+    resps = cv2.cornerHarris(eroded_img, block_size, aperture, free_parameter)
     threshold = 0.1
 
-    img = np.copy(img)
+    corner_img = img*0
+    corner_img[resps > threshold * resps.max()] = 255
+
+    component_img = img*0
+    component_img[resps > threshold * resps.max()] = 255
+
+    img = np.copy(eroded_img)
+    resps = cv2.dilate(resps, np.ones((9,9)), iterations=1)
     img[resps > threshold * resps.max()] = 0.
 
     # find corners
-    corner_img = img*0
-    corner_img[resps > threshold * resps.max()] = 255
+    corner_img = cv2.dilate(corner_img, np.ones((2,2)), iterations=1)
+    corner_img = cv2.morphologyEx(corner_img, cv2.MORPH_CLOSE, np.ones((5,5)))
+
     corner_contours, _ = cv2.findContours(corner_img, 1, 2)
     corners = []
     for cnt in corner_contours:
-        M = cv2.moments(cnt)
-        cx = int(M['m10']/M['m00'])
-        cy = int(M['m01'] / M['m00'])
-        corners.append((cx, cy))
+        if cv2.contourArea(cnt) < 500:
+            M = cv2.moments(cnt)
+            cx = int(M['m10']/M['m00'])
+            cy = int(M['m01'] / M['m00'])
+            corners.append((cx, cy))
+        else:
+            rect = cv2.minAreaRect(cnt)
+            box = cv2.boxPoints(rect)
+            box = np.int0(box)
+
+            for i,j in zip([0,1,2,3],[1,2,3,0]):
+                corners.append(tuple(np.int0((box[i] + box[j]) / 2)))
+
+    # find the components:
+    component_img = cv2.morphologyEx(component_img, cv2.MORPH_CLOSE, np.ones((15,15)), iterations=3)
+    show_imgs(component_img)
 
     # find lines
     contours, _ = cv2.findContours(img, 1, 2)
@@ -190,21 +209,17 @@ if __name__ == "__main__":
         post_img = clean_image(img)
         corners, line_segments = detect_graph_components(post_img)
         graph = build_graph(corners, line_segments)
-        leaf_sects = component_edges(graph)
-        # print(components)
+        # leaf_sects = component_edges(graph)
 
         line_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+        graph_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
         colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255),
                   (255, 255, 0), (0, 255, 255), (255, 0, 255)]
-        for e, c in enumerate(leaf_sects):
-            color = colors[e % len(colors)]
-            for v in c.vset:
-                cv2.circle(line_img, graph[v].loc, 6, color, -1)
-        """
-        for v in leaf_nodes:
-            cv2.circle(line_img, graph[v].loc, 6, (255, 0, 0), -1)
-        for v in set(range(len(graph))) - leaf_nodes:
-            cv2.circle(line_img, graph[v].loc, 6, (0, 255, 0), -1)
-        """
 
-        show_imgs(img, line_img)
+        for line in line_segments:
+            cv2.line(line_img, tuple(line[0]), tuple(line[1]), (0,0,255), 2)
+
+        # for corner in corners:
+            # cv2.circle(line_img, corner, 4, (255,0,0), -1)
+
+        show_imgs(line_img)
