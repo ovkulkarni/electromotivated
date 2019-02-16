@@ -3,15 +3,11 @@ import numpy as np
 
 
 def clean_image(img):
-
-    # (1) Convert to gray, and threshold
-    blur = cv2.GaussianBlur(img, (15, 15), 2)
-    _, threshed = cv2.threshold(blur, 160, 255, cv2.THRESH_BINARY_INV)
-
-    # (2) Close nearby segments + thicken lines
-    kernel = np.ones((7, 7))
-    morphed = cv2.morphologyEx(threshed, cv2.MORPH_CLOSE, kernel)
-    return morphed
+    img = cv2.GaussianBlur(img, (5,5), 0)
+    img = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_MEAN_C,
+                                        cv2.THRESH_BINARY_INV, 25, 50)
+    img = cv2.morphologyEx(img, cv2.MORPH_CLOSE, np.ones((7, 7)))
+    return img
 
 
 def detect_lines(img):
