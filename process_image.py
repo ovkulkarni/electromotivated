@@ -4,6 +4,7 @@ from itertools import combinations
 from collections import deque, namedtuple
 from unionfind import UnionFind
 from scipy import stats
+from identify import identify_component
 
 
 def resize_image(img):
@@ -109,6 +110,8 @@ def classify_components(img, cedges, graph):
                  for line in cedges]
     locations = list(set(tuple(sorted(l)) for l in locations)) # unique locations
 
+    original_img = np.copy(img)
+
     # stretch the lengths by 20%
     locs = [] # sorry :(
     midpoints = []
@@ -127,7 +130,7 @@ def classify_components(img, cedges, graph):
         cv2.circle(img, loc[1], 15, 0, -1)
 
     # contour the image:
-    boxes = []
+    components = []
     contours, _ = cv2.findContours(img, 1, 2)
     for cnt in contours:
         validContour = False
@@ -136,12 +139,10 @@ def classify_components(img, cedges, graph):
                 validContour = True
 
         if validContour:
-            rect = cv2.minAreaRect(cnt)
-            box = cv2.boxPoints(rect)
-            boxes.append(np.int0(box))
+            x,y,w,h = cv2.boundingRect(cnt)
+            components.append(identify_component(original_img[y:y+h, x:x+w]))
 
-    return boxes
-
+    return components
 
 def dist(x1, y1, x2, y2):
     return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
@@ -315,7 +316,7 @@ if __name__ == "__main__":
         corners, line_segments = detect_graph_components(post_img)
         graph = build_graph(corners, line_segments)
         leaf_sects, cedges = component_edges(graph)
-        bounding_boxes = classify_components(post_img, cedges, graph)
+        components = classify_components(post_img, cedges, graph)
         # print(cedges)
         # print(components)
 
@@ -331,7 +332,5 @@ if __name__ == "__main__":
             for v in c.vset:
                 cv2.circle(line_img, graph[v].loc, 6, color, -1)
 
-        for box in bounding_boxes:
-            cv2.drawContours(bounding_img,[box],0,(0,0,255),2)
-
-        show_imgs(bounding_img)
+        # show_imgs(bounding_img)
+        print(components)
