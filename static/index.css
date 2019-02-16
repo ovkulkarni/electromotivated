@@ -1,0 +1,21 @@
+body {
+  margin: 0;
+  background-color: #000000;
+}
+
+.st0 {
+  fill: none;
+  stroke: #1e3e92;
+  stroke-miterlimit: 10;
+}
+.st1 {
+  fill: none;
+  stroke: #1e3e92;
+  stroke-linecap: round;
+  stroke-miterlimit: 10;
+}
+
+.bgImage {
+    position: absolute;
+    top: 3.5rem;
+}
