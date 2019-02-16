@@ -5,7 +5,8 @@ import uuid
 NODE_TYPES = [
     ('battery', 'Battery'),
     ('resistor', 'Resistor'),
-    ('joint', 'Joint')
+    ('corner', 'Corner'),
+    ('capacitor', 'Capacitor')
 ]
 
 
@@ -22,7 +23,11 @@ class Circuit(models.Model):
 
 
 class Node(models.Model):
+    circuit = models.ForeignKey('circuits.Circuit', on_delete=models.CASCADE)
     connected_to = models.ManyToManyField('self', related_name='+')
     node_type = models.CharField(max_length=256, choices=NODE_TYPES)
-    x = models.IntegerField()
-    y = models.IntegerField()
+    x = models.IntegerField(null=True, blank=True)
+    y = models.IntegerField(null=True, blank=True)
+
+    def __str__(self):
+        return "{} at ({}, {})".format(self.node_type, self.x, self.y)

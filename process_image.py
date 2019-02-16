@@ -270,12 +270,12 @@ def component_edges(graph, img=None):
     all_cedges = []
     all_line_pairs = []
     for la in all_edges:
-        va, sa, ia = slope_intercept(la)
+        va, sa, ia = slope_intercept(la, graph)
         for lb in all_edges:
             if edge_lset(la) & edge_lset(lb) or lb[0]*lb[1] >= la[0]*la[1]:
                 continue
 
-            vb, sb, ib = slope_intercept(lb)
+            vb, sb, ib = slope_intercept(lb, graph)
             if va != vb:
                 continue
 
@@ -325,7 +325,7 @@ def component_edges(graph, img=None):
     return cedges, line_pairs
 
 
-def slope_intercept(line):
+def slope_intercept(line, graph):
     line = tuple(line)
     x1, y1 = tuple(graph[line[0]].loc)
     x2, y2 = tuple(graph[line[1]].loc)

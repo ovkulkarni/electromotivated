@@ -1,12 +1,22 @@
 @import url('https://fonts.googleapis.com/css?family=Roboto+Slab:100,300,400,700');
 @import url('https://fonts.googleapis.com/css?family=Raleway:300,300i,400,400i,500,500i,600,600i,700,700i,800,800i,900,900i');
 
+/* .jumbotron {
+    padding-right: 0.5rem;
+}
+
+@media screen and (max-width: 576px) {
+    .jumbotron {
+        padding-right: 0px;
+    }
+} */
 
 .cards {
     display: flex;
     display: -webkit-flex;
     justify-content: center;
     -webkit-justify-content: center;
+    margin-bottom: 2rem;
 }
 
 /* .card__img, .card__img--hover {
@@ -72,7 +82,7 @@ top: 0;
   
 }
 .card {
-  margin-right: 25px;
+  /* margin-right: 25px; */
   transition: all .4s cubic-bezier(0.175, 0.885, 0, 1);
   background-color: #fff;
   min-width: 100%;

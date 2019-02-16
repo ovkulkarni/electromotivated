@@ -1,16 +1,16 @@
 body {
   margin: 0;
-  background-color: #000000;
+  background-color: #0F0A0A;
 }
 
 .st0 {
   fill: none;
-  stroke: #1e3e92;
+  stroke: #77dd77;
   stroke-miterlimit: 10;
 }
 .st1 {
   fill: none;
-  stroke: #1e3e92;
+  stroke: #f8f9fa;
   stroke-linecap: round;
   stroke-miterlimit: 10;
 }
@@ -18,4 +18,5 @@ body {
 .bgImage {
     position: absolute;
     top: 3.5rem;
+    z-index: -5042504239502349;
 }

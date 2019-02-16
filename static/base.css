@@ -2,3 +2,7 @@
     margin-top: 2rem;
     /* margin-bottom: 2rem; */
 }
+
+.jumbotron {
+    min-height: 75%;
+}

@@ -135,6 +135,8 @@ LOGIN_URL = 'login'
 
 LOGIN_REDIRECT_URL = 'user_profile'
 
+MEDIA_ROOT = os.path.join(BASE_DIR, "uploads")
+
 try:
     from .secret import *  # noqa
 except ImportError:
