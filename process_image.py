@@ -256,7 +256,7 @@ def component_edges(graph, img=None):
         color = colors[e % len(colors)]
         cv2.line(img, tuple(graph[line[0]].loc), tuple(
             graph[line[1]].loc), color, 2)
-    show_imgs(img)
+    #show_imgs(img)
 
     def edge_depth(edge):
         a, b = tuple(edge)
@@ -412,7 +412,7 @@ def process(img):
 
 
 if __name__ == "__main__":
-    for i in range(6, 7):
+    for i in range(6, 18):
         img = cv2.imread("imgs/{}.JPG".format(i), 0)
         img = resize_image(img)
         # img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
@@ -428,14 +428,12 @@ if __name__ == "__main__":
         colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255),
                   (255, 255, 0), (0, 255, 255), (255, 0, 255)]
         for e, (line, lp) in enumerate(zip(cedges, line_pairs)):
-            visualize = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
             color = colors[e % len(colors)]
             cv2.line(visualize, tuple(graph[line[0]].loc), tuple(
                 graph[line[1]].loc), color, 2)
-            for l in lp:
-                cv2.line(visualize, tuple(graph[l[0]].loc), tuple(
-                    graph[l[1]].loc), color, 2)
-            show_imgs(visualize)
+            #for l in lp:
+            #    cv2.line(visualize, tuple(graph[l[0]].loc), tuple(
+            #        graph[l[1]].loc), color, 2)
 
-        # show_imgs(visualize)
+        show_imgs(visualize)
         # print(components)
