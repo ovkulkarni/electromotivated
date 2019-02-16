@@ -217,6 +217,7 @@ def component_edges(graph, img=None):
     leaf_set = {}
 
     for conn in connecteds:
+        
         leaves = set()
         for v in conn:
             if len(graph[v].adjs) == 1:
