@@ -193,7 +193,7 @@ def build_graph(corners, segments):
     return vs
 
 
-def component_edges(graph):
+def component_edges(graph, img=None):
     # print(graph)
     vset = set(range(len(graph)))
     connecteds = []
@@ -222,7 +222,7 @@ def component_edges(graph):
             if len(graph[v].adjs) == 1:
                 leaves.add(v)
                 depth[v] = 0
-                leaf_set[v] = set()
+                leaf_set[v] = set([v])
                 children[v] = set()
                 parents[v] = set()
 
@@ -233,12 +233,12 @@ def component_edges(graph):
             v = q.popleft()
             for a in graph[v].adjs:
                 if a in depth:
-                    if depth[a] >= depth[v]:
-                        leaf_set[a].update(leaf_set[v] | {v})
+                    if depth[a] > depth[v]:
+                        leaf_set[a].update(leaf_set[v])
                         parents[a].add(v)
                 else:
                     parents[a] = set([v])
-                    leaf_set[a] = leaf_set[v] | {v}
+                    leaf_set[a] = leaf_set[v] | {a}
                     depth[a] = depth[v] + 1
                     children[a] = set()
                     children[v].add(a)
@@ -250,6 +250,14 @@ def component_edges(graph):
             all_edges.add(frozenset([v, a]))
     all_edges = {tuple(e) for e in all_edges}
 
+    colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255),
+              (255, 255, 0), (0, 255, 255), (255, 0, 255)]
+    for e, line in enumerate(all_edges):
+        color = colors[e % len(colors)]
+        cv2.line(img, tuple(graph[line[0]].loc), tuple(
+            graph[line[1]].loc), color, 2)
+    show_imgs(img)
+
     def edge_depth(edge):
         a, b = tuple(edge)
         return min(depth[a], depth[b])
@@ -258,8 +266,8 @@ def component_edges(graph):
         a, b = tuple(edge)
         return leaf_set[a] | leaf_set[b]
 
-    cedges = []
-    line_pairs = []
+    all_cedges = []
+    all_line_pairs = []
     for la in all_edges:
         va, sa, ia = slope_intercept(la)
         for lb in all_edges:
@@ -290,10 +298,29 @@ def component_edges(graph):
             else:
                 dis = abs(graph[min_edge[0]].loc[1] - sb *
                           graph[min_edge[0]].loc[0] - ib)/(sb**2 + 1)**0.5
-            if dis/min_edge_dist < 0.2 and abs(sa - sb) ** 2 < 0.1:
-                cedges.append(tuple(min_edge))
-                line_pairs.append((tuple(la), tuple(lb)))
+            if dis/min_edge_dist < 0.5 and abs(sa - sb) ** 2 < 0.1:
+                all_cedges.append(tuple(min_edge))
+                all_line_pairs.append((tuple(la), tuple(lb)))
 
+    ordered_clp = []
+    for c, lp in zip(all_cedges, all_line_pairs):
+        dis = dist(*graph[c[0]].loc, *graph[c[1]].loc)
+        ordered_clp.append((dis, c, lp))
+
+    cedges = []
+    line_pairs = []
+    used_nodes = set()
+    # print(sorted(ordered_clp))
+    for _, c, lp in sorted(ordered_clp):
+        if used_nodes & set(c):
+            continue
+        # print(used_nodes)
+        # print(c)
+        cedges.append(c)
+        line_pairs.append(lp)
+        used_nodes |= (edge_lset(c) - set(lp[0] + lp[1])) | set(c)
+
+    # print()
     return cedges, line_pairs
 
 
@@ -385,14 +412,15 @@ def process(img):
 
 
 if __name__ == "__main__":
-    for i in range(1, 11):
+    for i in range(6, 7):
         img = cv2.imread("imgs/{}.JPG".format(i), 0)
         img = resize_image(img)
         # img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
         post_img = clean_image(img)
         corners, line_segments = detect_graph_components(post_img)
         graph = build_graph(corners, line_segments)
-        cedges, line_pairs = component_edges(graph)
+        cedges, line_pairs = component_edges(
+            graph, cv2.cvtColor(img, cv2.COLOR_GRAY2BGR))
         components = classify_components(post_img, cedges, graph)
         circuit = build_circuit(graph, cedges, line_pairs, components)
 
