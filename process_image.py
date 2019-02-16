@@ -1,9 +1,7 @@
 import cv2
 import numpy as np
-from itertools import combinations
 from collections import deque, namedtuple
 from unionfind import UnionFind
-from scipy import stats
 from identify import identify_component
 
 
@@ -120,6 +118,7 @@ def classify_components(img, cedges, graph):
     # stretch the lengths by 20%
     locs = []  # sorry :(
     midpoints = []
+    orientations = {}
     for loc in locations:
         a, b = map(np.array, loc)
         midpoint = (a + b) / 2
@@ -128,6 +127,8 @@ def classify_components(img, cedges, graph):
         p2 = midpoint - ((a - midpoint)*scale)
         locs.append((tuple(np.int0(p1)), tuple(np.int0(p2))))
         midpoints.append(tuple(np.int0(midpoint)))
+        orientations[tuple(np.int0(midpoint))] = abs(
+            a[0] - b[0]) > abs(a[1] - b[1])
 
     for loc in locs:  # connect the contours completely
         cv2.line(img, loc[0], loc[1], 255, 10)
@@ -147,8 +148,8 @@ def classify_components(img, cedges, graph):
 
         if validContour:
             x, y, w, h = cv2.boundingRect(cnt)
-            components[my_mid] = identify_component(original_img[y:y+h, x:x+w])
-
+            components[my_mid] = identify_component(
+                original_img[y:y+h, x:x+w], orientations[my_mid])
     return [components.get(m, 'undefined') for m in midpoints]
 
 
@@ -173,7 +174,6 @@ def build_graph(corners, segments):
         vs.append(v)
 
     for seg in segments:
-        seg_len = dist(*seg[0], *seg[1])
         seg_corners = []
         for pnt in seg:
             min_corner = None
@@ -388,6 +388,7 @@ if __name__ == "__main__":
     for i in range(1, 7):
         img = cv2.imread("imgs/{}.JPG".format(i), 0)
         img = resize_image(img)
+        # img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
         post_img = clean_image(img)
         corners, line_segments = detect_graph_components(post_img)
         graph = build_graph(corners, line_segments)
