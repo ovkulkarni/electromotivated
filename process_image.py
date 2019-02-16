@@ -3,6 +3,10 @@ import numpy as np
 from itertools import combinations
 from collections import deque, namedtuple
 from unionfind import UnionFind
+from scipy import stats
+
+
+INF = 1e11
 
 
 def resize_image(img):
@@ -40,12 +44,12 @@ def detect_graph_components(img):
     circles_img = np.copy(img)
 
     line_img = np.copy(eroded_img)
-    resps = cv2.dilate(resps, np.ones((9,9)), iterations=1)
+    resps = cv2.dilate(resps, np.ones((9, 9)), iterations=1)
     line_img[resps > threshold * resps.max()] = 0.
 
     # find corners
-    corner_img = cv2.dilate(corner_img, np.ones((2,2)), iterations=1)
-    corner_img = cv2.morphologyEx(corner_img, cv2.MORPH_CLOSE, np.ones((5,5)))
+    corner_img = cv2.dilate(corner_img, np.ones((2, 2)), iterations=1)
+    corner_img = cv2.morphologyEx(corner_img, cv2.MORPH_CLOSE, np.ones((5, 5)))
 
     corner_contours, _ = cv2.findContours(corner_img, 1, 2)
     corners = []
@@ -60,7 +64,7 @@ def detect_graph_components(img):
             box = cv2.boxPoints(rect)
             box = np.int0(box)
 
-            for i,j in zip([0,1,2,3],[1,2,3,0]):
+            for i, j in zip([0, 1, 2, 3], [1, 2, 3, 0]):
                 corners.append(tuple(np.int0((box[i] + box[j]) / 2)))
 
     # find the resistors:
@@ -145,7 +149,7 @@ def build_graph(corners, segments):
 
 
 def component_edges(graph):
-    print(graph)
+    # print(graph)
     vset = set(range(len(graph)))
     connecteds = []
     while vset:
@@ -178,18 +182,17 @@ def component_edges(graph):
             if depth == 2:
                 break
             for a in graph[v].adjs:
-                if a not in leaf_nodes:
-                    leaf_nodes.add(a)
+                leaf_nodes.add(a)
 
-                    if a not in leaf_adjs:
-                        leaf_adjs[a] = set()
-                    if v not in leaf_adjs:
-                        leaf_adjs[v] = set()
-                    leaf_adjs[a].add(v)
-                    leaf_adjs[v].add(a)
-                    leaf_edges.add(frozenset([v, a]))
+                if a not in leaf_adjs:
+                    leaf_adjs[a] = set()
+                if v not in leaf_adjs:
+                    leaf_adjs[v] = set()
+                leaf_adjs[a].add(v)
+                leaf_adjs[v].add(a)
+                leaf_edges.add(frozenset([v, a]))
 
-                    q.append((depth + 1, a))
+                q.append((depth + 1, a))
 
     uf = UnionFind(leaf_nodes)
     for a, b in leaf_edges:
@@ -206,9 +209,59 @@ def component_edges(graph):
         lset = {tuple(fs) for fs in lset}
         leaf_sects.append(LeafSect(conn, lset))
 
-    print(leaf_sects)
+    unsolved_sects = set(range(len(leaf_sects)))
 
-    return leaf_sects
+    #print(leaf_sects)
+    component_edges = set()
+    for a_ix in unsolved_sects:
+        a = leaf_sects[a_ix]
+        edge_options = []
+        for b_ix in unsolved_sects:
+            if a_ix == b_ix: continue
+            b = leaf_sects[b_ix]
+            for la in a.lset:
+                va, sa, ia = slope_intercept(la)
+                for lb in b.lset:
+
+                    # find min edge between these two lines
+                    min_edge = None
+                    min_edge_dist = None
+                    for pta in la:
+                        for ptb in lb:
+                            dis = dist(*graph[pta].loc, *graph[ptb].loc)
+                            if min_edge_dist is None or dis < min_edge_dist:
+                                min_edge_dist = dis
+                                min_edge = (pta, ptb)
+
+                    # find the error between the lines
+                    vb, sb, ib = slope_intercept(lb)
+                    if va != vb:
+                        continue
+                    err = (sa - sb) ** 2 + (ia - ib) ** 2
+
+                    edge_options.append((err, min_edge))
+
+        edges_to_take = int(0.9 + len(a.lset) / 3)
+        #print(edges_to_take)
+        for err, edge in sorted(edge_options)[:edges_to_take]:
+            #print(edge)
+            component_edges.add(edge)
+
+    return leaf_sects, component_edges
+
+
+def slope_intercept(line):
+    x1, y1 = tuple(graph[line[0]].loc)
+    x2, y2 = tuple(graph[line[1]].loc)
+
+    vert = abs(y2 - y1) > abs(x2 - x1)
+    if vert:
+        slope = (x2 - x1) / (y2 - y1)
+        intercept = x1 - slope*y1
+    else:
+        slope = (y2 - y1) / (x2 - x1)
+        intercept = y1 - slope*x1
+    return vert, slope, intercept
 
 
 def show_imgs(*imgs):
@@ -219,23 +272,25 @@ def show_imgs(*imgs):
 
 
 if __name__ == "__main__":
-    for i in range(6, 7):
+    for i in range(1, 7):
         img = cv2.imread("imgs/{}.JPG".format(i), 0)
         img = resize_image(img)
         post_img = clean_image(img)
         corners, line_segments = detect_graph_components(post_img)
-        # graph = build_graph(corners, line_segments)
-        # leaf_sects = component_edges(graph)
+        graph = build_graph(corners, line_segments)
+        leaf_sects, cedges = component_edges(graph)
+        # print(cedges)
+        # print(components)
 
         line_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-        # graph_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-        # colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255),
-                  # (255, 255, 0), (0, 255, 255), (255, 0, 255)]
+        for line in cedges:
+            cv2.line(line_img, tuple(graph[line[0]].loc), tuple(
+                graph[line[1]].loc), (0, 0, 255), 2)
+        colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255),
+                  (255, 255, 0), (0, 255, 255), (255, 0, 255)]
+        for e, c in enumerate(leaf_sects):
+            color = colors[e % len(colors)]
+            for v in c.vset:
+                cv2.circle(line_img, graph[v].loc, 6, color, -1)
 
-        for line in line_segments:
-            cv2.line(line_img, tuple(line[0]), tuple(line[1]), (0,0,255), 2)
-
-        for corner in corners:
-            cv2.circle(line_img, corner, 4, (255,0,0), -1)
-
-        show_imgs(line_img)
+        show_imgs(img, line_img)
