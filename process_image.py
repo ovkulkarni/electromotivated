@@ -39,6 +39,8 @@ def detect_graph_components(img):
 
     circles_img = np.copy(img)
 
+    inductor_img = np.copy(img)
+
     line_img = np.copy(eroded_img)
     resps = cv2.dilate(resps, np.ones((9, 9)), iterations=1)
     line_img[resps > threshold * resps.max()] = 0.
@@ -71,21 +73,45 @@ def detect_graph_components(img):
     resistor_img = cv2.morphologyEx(
         resistor_img, cv2.MORPH_OPEN, np.ones((21, 21)), iterations=1)
 
+    # find the inductors:
+    inductor_img = cv2.morphologyEx(
+        inductor_img, cv2.MORPH_CLOSE, np.ones((9,9)), iterations=2)
+    inductor_img = cv2.erode(inductor_img, np.ones((17,17)))
+    inductor_img = cv2.morphologyEx(
+        inductor_img, cv2.MORPH_CLOSE, np.ones((21,21)), iterations=2)
+
+    contours, _ = cv2.findContours(inductor_img, 1, 2)
+    inductor_mask = inductor_img*0
+    for cnt in contours:
+        x, y, w, h = cv2.boundingRect(cnt)
+        if (w*h > 1500):
+            cv2.drawContours(inductor_mask, [cnt], -1, 255, -1)
+    inductor_mask = cv2.dilate(inductor_mask, np.ones((9,9)))
+
     # find the circles:
     circles_img = cv2.morphologyEx(
-        circles_img, cv2.MORPH_CLOSE, np.ones((5, 5)), iterations=5)
-    circles_img = cv2.morphologyEx(
-        circles_img, cv2.MORPH_OPEN, np.ones((20, 20)), iterations=1)
+        circles_img, cv2.MORPH_CLOSE, np.ones((5, 5)), iterations=3)
+
+    contours, _ = cv2.findContours(255-circles_img, 1, 2)
+    for cnt in contours:
+        if cv2.contourArea(cnt) < 5000:
+            cv2.drawContours(circles_img, [cnt], -1, 255, -1)
+    circles_img = cv2.erode(circles_img, np.ones((21,21)))
+
     contours, _ = cv2.findContours(circles_img, 1, 2)
     for cnt in contours:
         area = cv2.contourArea(cnt)
         arclen = cv2.arcLength(cnt, True)
+        if arclen == 0:
+            continue
         circularity = (4 * np.pi * area) / (arclen * arclen)
-        if (circularity < .85):
+        if (circularity < .75):
             cv2.drawContours(circles_img, [cnt], -1, 0, -1)
+    circles_img = cv2.dilate(circles_img, np.ones((21,21)))
+
 
     _, line_img = cv2.threshold(
-        line_img-resistor_img-circles_img, 2, 255, cv2.THRESH_BINARY)
+        line_img-(resistor_img | circles_img | inductor_mask), 2, 255, cv2.THRESH_BINARY)
 
     # find lines
     contours, _ = cv2.findContours(line_img, 1, 2)
@@ -130,6 +156,7 @@ def classify_components(img, cedges, graph):
         orientations[tuple(np.int0(midpoint))] = abs(
             a[0] - b[0]) > abs(a[1] - b[1])
 
+    img = np.copy(img)
     for loc in locs:  # connect the contours completely
         cv2.line(img, loc[0], loc[1], 255, 10)
         cv2.circle(img, loc[0], 15, 0, -1)
@@ -146,10 +173,12 @@ def classify_components(img, cedges, graph):
                 validContour = True
                 my_mid = mid
 
-        if validContour:
+        if validContour and my_mid not in components:
             x, y, w, h = cv2.boundingRect(cnt)
             components[my_mid] = identify_component(
                 original_img[y:y+h, x:x+w], orientations[my_mid])
+            print(components[my_mid])
+            show_imgs(original_img[y:y+h, x:x+w])
     return [components.get(m, 'undefined') for m in midpoints]
 
 
@@ -167,8 +196,23 @@ class Vertex:
         return str(self.adjs)
 
 
-def build_graph(corners, segments):
+def build_graph(raw_corners, segments):
     vs = []
+
+    uf = UnionFind(list(range(len(raw_corners))))
+    for a in range(len(raw_corners)):
+        for b in range(len(raw_corners)):
+            dis = dist(*raw_corners[a], *raw_corners[b])
+            if dis < 10:
+                uf.union(a, b)
+
+    corners = []
+    for conn in uf.components():
+        cx = sum(raw_corners[i][0] for i in conn) // len(conn)
+        cy = sum(raw_corners[i][1] for i in conn) // len(conn)
+        corners.append((cx, cy))
+    corners = raw_corners
+
     for c in corners:
         v = Vertex(len(vs), c)
         vs.append(v)
@@ -183,7 +227,7 @@ def build_graph(corners, segments):
                 if not min_corner_dist or dis < min_corner_dist:
                     min_corner = e
                     min_corner_dist = dis
-            if min_corner_dist <= 50:
+            if min_corner_dist <= 75:
                 seg_corners.append(min_corner)
         if len(seg_corners) == 2:
             a, b = tuple(seg_corners)
@@ -253,11 +297,11 @@ def component_edges(graph, img=None):
 
     colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255),
               (255, 255, 0), (0, 255, 255), (255, 0, 255)]
-    for e, line in enumerate(all_edges):
-        color = colors[e % len(colors)]
-        cv2.line(img, tuple(graph[line[0]].loc), tuple(
-            graph[line[1]].loc), color, 2)
-    #show_imgs(img)
+    for e, conn in enumerate(connecteds):
+        for v in conn:
+            color = colors[e % len(colors)]
+            cv2.circle(img, graph[v].loc, 6, color, -1)
+    # show_imgs(img)
 
     def edge_depth(edge):
         a, b = tuple(edge)
@@ -394,9 +438,10 @@ def build_circuit(graph, cedges, line_pairs, components):
     return ns
 
 
-def show_imgs(*imgs):
+def show_imgs(*imgs, names=None):
     for e, img in enumerate(imgs):
-        cv2.imshow(str(e), img)
+        name = str(e) if names is None else names[e]
+        cv2.imshow(name, img)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
@@ -413,7 +458,7 @@ def process(img):
 
 
 if __name__ == "__main__":
-    for i in range(6, 18):
+    for i in range(1,18): #[15,17]:
         img = cv2.imread("imgs/{}.JPG".format(i), 0)
         img = resize_image(img)
         # img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
@@ -425,16 +470,24 @@ if __name__ == "__main__":
         components = classify_components(post_img, cedges, graph)
         circuit = build_circuit(graph, cedges, line_pairs, components)
 
-        visualize = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
         colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255),
                   (255, 255, 0), (0, 255, 255), (255, 0, 255)]
+
+        raw_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+        for corner in corners:
+            cv2.circle(raw_img, corner, 6, colors[0], -1)
+        for line in line_segments:
+            cv2.line(raw_img, tuple(line[0]), tuple(line[1]), colors[1], 2)
+
+        visualize = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
         for e, (line, lp) in enumerate(zip(cedges, line_pairs)):
             color = colors[e % len(colors)]
             cv2.line(visualize, tuple(graph[line[0]].loc), tuple(
                 graph[line[1]].loc), color, 2)
-            #for l in lp:
+            # for l in lp:
             #    cv2.line(visualize, tuple(graph[l[0]].loc), tuple(
             #        graph[l[1]].loc), color, 2)
 
-        show_imgs(visualize)
-        # print(components)
+        # show_imgs(raw_img, visualize, names=["raw", str(i)])
+        print(components)
+        show_imgs(visualize, names=[str(i)])
