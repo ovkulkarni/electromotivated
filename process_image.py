@@ -34,8 +34,10 @@ def detect_graph_components(img):
     corner_img = img*0
     corner_img[resps > threshold * resps.max()] = 255
 
-    component_img = img*0
-    component_img[resps > threshold * resps.max()] = 255
+    resistor_img = img*0
+    resistor_img[resps > threshold * resps.max()] = 255
+
+    circles_img = np.copy(img)
 
     line_img = np.copy(eroded_img)
     resps = cv2.dilate(resps, np.ones((9,9)), iterations=1)
@@ -61,11 +63,23 @@ def detect_graph_components(img):
             for i,j in zip([0,1,2,3],[1,2,3,0]):
                 corners.append(tuple(np.int0((box[i] + box[j]) / 2)))
 
-    # find the components:
-    component_img = cv2.morphologyEx(component_img, cv2.MORPH_CLOSE, np.ones((11,11)), iterations=3)
-    component_img = cv2.morphologyEx(component_img, cv2.MORPH_OPEN, np.ones((9,9)), iterations=2)
-    component_img = cv2.morphologyEx(component_img, cv2.MORPH_OPEN, np.ones((21,21)), iterations=1)
-    _, line_img = cv2.threshold(line_img - component_img, 2, 255, cv2.THRESH_BINARY)
+    # find the resistors:
+    resistor_img = cv2.morphologyEx(resistor_img, cv2.MORPH_CLOSE, np.ones((11,11)), iterations=3)
+    resistor_img = cv2.morphologyEx(resistor_img, cv2.MORPH_OPEN, np.ones((9,9)), iterations=2)
+    resistor_img = cv2.morphologyEx(resistor_img, cv2.MORPH_OPEN, np.ones((21,21)), iterations=1)
+
+    # find the circles:
+    circles_img = cv2.morphologyEx(circles_img, cv2.MORPH_CLOSE, np.ones((5,5)), iterations=5)
+    circles_img = cv2.morphologyEx(circles_img, cv2.MORPH_OPEN, np.ones((20,20)), iterations=1)
+    contours, _ = cv2.findContours(circles_img, 1, 2)
+    for cnt in contours:
+        area = cv2.contourArea(cnt)
+        arclen = cv2.arcLength(cnt, True)
+        circularity = (4 * np.pi * area) / (arclen * arclen)
+        if (circularity < .85):
+            cv2.drawContours(circles_img, [cnt], -1, 0, -1)
+
+    _, line_img = cv2.threshold(line_img-resistor_img-circles_img, 2, 255, cv2.THRESH_BINARY)
 
     # find lines
     contours, _ = cv2.findContours(line_img, 1, 2)
@@ -205,18 +219,18 @@ def show_imgs(*imgs):
 
 
 if __name__ == "__main__":
-    for i in range(1, 7):
+    for i in range(6, 7):
         img = cv2.imread("imgs/{}.JPG".format(i), 0)
         img = resize_image(img)
         post_img = clean_image(img)
         corners, line_segments = detect_graph_components(post_img)
-        graph = build_graph(corners, line_segments)
+        # graph = build_graph(corners, line_segments)
         # leaf_sects = component_edges(graph)
 
         line_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-        graph_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-        colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255),
-                  (255, 255, 0), (0, 255, 255), (255, 0, 255)]
+        # graph_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+        # colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255),
+                  # (255, 255, 0), (0, 255, 255), (255, 0, 255)]
 
         for line in line_segments:
             cv2.line(line_img, tuple(line[0]), tuple(line[1]), (0,0,255), 2)
