@@ -34,7 +34,7 @@ $(document).ready(function() {
     {% for node in nodes %}
     elements.push({id: {{ node.pk }}, connected_to: [{% for conn in node.connected_to.all %}{{ conn.pk }}{% if not forloop.last %}, {% endif %}{% endfor %}], type: "{{ node.node_type }}", loc: [{{ node.x|default:"NaN" }}, {{ node.y|default:"NaN" }}]})
     {% endfor %}
-    console.log(elements)
+    console.log(JSON.stringify(elements))
     var max_x = 0;
     var max_y = 0;
     var min_x = Infinity;
