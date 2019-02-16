@@ -237,7 +237,7 @@ def process(img):
 
 
 if __name__ == "__main__":
-    for i in range(1, 19):  # [15,17]:
+    for i in range(1, 19):
         img = cv2.imread("imgs/{}.JPG".format(i), 0)
         img = resize_image(img)
         # img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
