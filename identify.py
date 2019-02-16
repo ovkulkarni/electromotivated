@@ -23,7 +23,7 @@ def identify_component(component_img, circles_component, is_horizontal):
 
     # check for resistor:
     resistor_img = cv2.morphologyEx(
-        component_img,cv2.MORPH_CLOSE, np.ones((3,3)), iterations=2)
+        component_img, cv2.MORPH_CLOSE, np.ones((3, 3)), iterations=2)
     resistor_img = cv2.erode(resistor_img, np.ones((7, 7)))
     # color_img = cv2.cvtColor(resistor_img, cv2.COLOR_GRAY2BGR)
 
