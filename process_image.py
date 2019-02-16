@@ -37,9 +37,9 @@ def detect_graph_components(img):
     component_img = img*0
     component_img[resps > threshold * resps.max()] = 255
 
-    img = np.copy(eroded_img)
+    line_img = np.copy(eroded_img)
     resps = cv2.dilate(resps, np.ones((9,9)), iterations=1)
-    img[resps > threshold * resps.max()] = 0.
+    line_img[resps > threshold * resps.max()] = 0.
 
     # find corners
     corner_img = cv2.dilate(corner_img, np.ones((2,2)), iterations=1)
@@ -62,14 +62,16 @@ def detect_graph_components(img):
                 corners.append(tuple(np.int0((box[i] + box[j]) / 2)))
 
     # find the components:
-    component_img = cv2.morphologyEx(component_img, cv2.MORPH_CLOSE, np.ones((15,15)), iterations=3)
-    show_imgs(component_img)
+    component_img = cv2.morphologyEx(component_img, cv2.MORPH_CLOSE, np.ones((11,11)), iterations=3)
+    component_img = cv2.morphologyEx(component_img, cv2.MORPH_OPEN, np.ones((9,9)), iterations=2)
+    component_img = cv2.morphologyEx(component_img, cv2.MORPH_OPEN, np.ones((21,21)), iterations=1)
+    _, line_img = cv2.threshold(line_img - component_img, 2, 255, cv2.THRESH_BINARY)
 
     # find lines
-    contours, _ = cv2.findContours(img, 1, 2)
+    contours, _ = cv2.findContours(line_img, 1, 2)
     line_segments = []
     for cnt in contours:
-        if cv2.contourArea(cnt) < 20:
+        if cv2.contourArea(cnt) < 50:
             continue
 
         rect = cv2.minAreaRect(cnt)
@@ -203,7 +205,7 @@ def show_imgs(*imgs):
 
 
 if __name__ == "__main__":
-    for i in range(1, 5):
+    for i in range(1, 7):
         img = cv2.imread("imgs/{}.JPG".format(i), 0)
         img = resize_image(img)
         post_img = clean_image(img)
@@ -219,7 +221,7 @@ if __name__ == "__main__":
         for line in line_segments:
             cv2.line(line_img, tuple(line[0]), tuple(line[1]), (0,0,255), 2)
 
-        # for corner in corners:
-            # cv2.circle(line_img, corner, 4, (255,0,0), -1)
+        for corner in corners:
+            cv2.circle(line_img, corner, 4, (255,0,0), -1)
 
         show_imgs(line_img)
