@@ -6,9 +6,6 @@ from unionfind import UnionFind
 from scipy import stats
 
 
-INF = 1e11
-
-
 def resize_image(img):
     scale = np.sqrt(4e5 / (img.shape[0] * img.shape[1]))
     new_bounds = (int(img.shape[1] * scale), int(img.shape[0] * scale))
@@ -105,6 +102,45 @@ def detect_graph_components(img):
         line_segments.append((np.int0((p1 + p2) / 2), np.int0((p3 + p4) / 2)))
 
     return corners, line_segments
+
+
+def classify_components(img, cedges, graph):
+    locations = [(tuple(graph[line[0]].loc), tuple(graph[line[1]].loc))
+                 for line in cedges]
+    locations = list(set(tuple(sorted(l)) for l in locations)) # unique locations
+
+    # stretch the lengths by 20%
+    locs = [] # sorry :(
+    midpoints = []
+    for loc in locations:
+        a, b = map(np.array, loc)
+        midpoint = (a + b) / 2
+        scale = (np.linalg.norm(a-midpoint) + 30) / np.linalg.norm(a-midpoint)
+        p1 = ((a - midpoint)*scale) + midpoint
+        p2 = midpoint - ((a - midpoint)*scale)
+        locs.append((tuple(np.int0(p1)), tuple(np.int0(p2))))
+        midpoints.append(midpoint)
+
+    for loc in locs: # connect the contours completely
+        cv2.line(img, loc[0], loc[1], 255, 10)
+        cv2.circle(img, loc[0], 15, 0, -1)
+        cv2.circle(img, loc[1], 15, 0, -1)
+
+    # contour the image:
+    boxes = []
+    contours, _ = cv2.findContours(img, 1, 2)
+    for cnt in contours:
+        validContour = False
+        for mid in midpoints:
+            if cv2.pointPolygonTest(cnt,tuple(np.int0(mid)),False) >= 0:
+                validContour = True
+
+        if validContour:
+            rect = cv2.minAreaRect(cnt)
+            box = cv2.boxPoints(rect)
+            boxes.append(np.int0(box))
+
+    return boxes
 
 
 def dist(x1, y1, x2, y2):
@@ -279,10 +315,12 @@ if __name__ == "__main__":
         corners, line_segments = detect_graph_components(post_img)
         graph = build_graph(corners, line_segments)
         leaf_sects, cedges = component_edges(graph)
+        bounding_boxes = classify_components(post_img, cedges, graph)
         # print(cedges)
         # print(components)
 
         line_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+        bounding_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
         for line in cedges:
             cv2.line(line_img, tuple(graph[line[0]].loc), tuple(
                 graph[line[1]].loc), (0, 0, 255), 2)
@@ -293,4 +331,7 @@ if __name__ == "__main__":
             for v in c.vset:
                 cv2.circle(line_img, graph[v].loc, 6, color, -1)
 
-        show_imgs(img, line_img)
+        for box in bounding_boxes:
+            cv2.drawContours(bounding_img,[box],0,(0,0,255),2)
+
+        show_imgs(bounding_img)
