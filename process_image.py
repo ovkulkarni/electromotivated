@@ -208,103 +208,97 @@ def component_edges(graph):
                     q.append(a)
                     conn.add(a)
                     vset.remove(a)
-        if len(conn) >= 3:
+        if len(conn) >= 2:
             connecteds.append(conn)
 
-    leaf_nodes = set()
-    leaf_edges = set()
-    leaf_adjs = {}
+    depth = {}
+    parents = {}
+    children = {}
+    leaf_set = {}
     for conn in connecteds:
+
         leaves = set()
         for v in conn:
             if len(graph[v].adjs) == 1:
                 leaves.add(v)
+                depth[v] = 0
+                leaf_set[v] = set()
+                children[v] = set()
+                parents[v] = set()
+
         q = deque()
         for leaf in leaves:
-            q.append((0, leaf))
+            q.append(leaf)
         while q:
-            depth, v = q.popleft()
-            if depth == 2:
-                break
+            v = q.popleft()
             for a in graph[v].adjs:
-                leaf_nodes.add(a)
+                if a in depth:
+                    if depth[a] >= depth[v]:
+                        leaf_set[a].update(leaf_set[v] | {v})
+                        parents[a].add(v)
+                else:
+                    parents[a] = set([v])
+                    leaf_set[a] = leaf_set[v] | {v}
+                    depth[a] = depth[v] + 1
+                    children[a] = set()
+                    children[v].add(a)
+                    q.append(a)
 
-                if a not in leaf_adjs:
-                    leaf_adjs[a] = set()
-                if v not in leaf_adjs:
-                    leaf_adjs[v] = set()
-                leaf_adjs[a].add(v)
-                leaf_adjs[v].add(a)
-                leaf_edges.add(frozenset([v, a]))
+    all_edges = set()
+    for v in set().union(*connecteds):
+        for a in graph[v].adjs:
+            all_edges.add(frozenset([v, a]))
+    all_edges = {tuple(e) for e in all_edges}
 
-                q.append((depth + 1, a))
+    def edge_depth(edge):
+        a, b = tuple(edge)
+        return min(depth[a], depth[b])
 
-    uf = UnionFind(leaf_nodes)
-    for a, b in leaf_edges:
-        uf.union(a, b)
+    def edge_lset(edge):
+        a, b = tuple(edge)
+        return leaf_set[a] | leaf_set[b]
 
-    leaf_node_connecteds = uf.components()
-    leaf_sects = []
-    LeafSect = namedtuple("LeafSect", ["vset", "lset"])
-    for conn in leaf_node_connecteds:
-        lset = set()
-        for v in conn:
-            for a in leaf_adjs[v]:
-                lset.add(frozenset([v, a]))
-        lset = {tuple(fs) for fs in lset}
-        leaf_sects.append(LeafSect(conn, lset))
-
-    unsolved_sects = set(range(len(leaf_sects)))
-
-    # print(leaf_sects)
-    component_edges = {}
-    for a_ix in unsolved_sects:
-        a = leaf_sects[a_ix]
-        edge_options = []
-        for b_ix in unsolved_sects:
-            if a_ix == b_ix:
-                continue
-            b = leaf_sects[b_ix]
-            for la in a.lset:
-                va, sa, ia = slope_intercept(la)
-                for lb in b.lset:
-
-                    # find min edge between these two lines
-                    min_edge = None
-                    min_edge_dist = None
-                    for pta in la:
-                        for ptb in lb:
-                            dis = dist(*graph[pta].loc, *graph[ptb].loc)
-                            if min_edge_dist is None or dis < min_edge_dist:
-                                min_edge_dist = dis
-                                min_edge = (pta, ptb)
-
-                    # find the error between the lines
-                    vb, sb, ib = slope_intercept(lb)
-                    if va != vb:
-                        continue
-                    err = (sa - sb) ** 2 + (ia - ib) ** 2
-
-                    edge_options.append((err, min_edge, (la, lb)))
-
-        edges_to_take = int(0.9 + len(a.lset) / 3)
-        # print(edges_to_take)
-        for err, edge, line_pair in sorted(edge_options)[:edges_to_take]:
-            # print(edge)
-            component_edges[edge] = line_pair
-
-    deduped_cedges = list(set(tuple(sorted(l))
-                              for l in component_edges.keys()))
+    cedges = []
     line_pairs = []
-    for key in deduped_cedges:
-        if key not in component_edges:
-            key = (key[1], key[0])
-        line_pairs.append(component_edges[key])
+    for la in all_edges:
+        va, sa, ia = slope_intercept(la)
+        for lb in all_edges:
+            if edge_lset(la) & edge_lset(lb) or lb[0]*lb[1] >= la[0]*la[1]:
+                continue
 
-    return leaf_sects, (deduped_cedges, line_pairs)
+            vb, sb, ib = slope_intercept(lb)
+            if va != vb:
+                continue
+
+            # find min edge between these two lines
+            min_edge = None
+            min_edge_dist = None
+            for pta in la:
+                for ptb in lb:
+                    dis = dist(*graph[pta].loc, *graph[ptb].loc)
+                    if min_edge_dist is None or dis < min_edge_dist:
+                        min_edge_dist = dis
+                        min_edge = (pta, ptb)
+
+            if min_edge_dist > 300:
+                continue
+
+            # determine if its a valid edge
+            if va:
+                dis = abs(graph[min_edge[0]].loc[0] - sb *
+                          graph[min_edge[0]].loc[1] - ib)/(sb**2 + 1)**0.5
+            else:
+                dis = abs(graph[min_edge[0]].loc[1] - sb *
+                          graph[min_edge[0]].loc[0] - ib)/(sb**2 + 1)**0.5
+            if dis/min_edge_dist < 0.2 and abs(sa - sb) ** 2 < 0.1:
+                cedges.append(tuple(min_edge))
+                line_pairs.append((tuple(la), tuple(lb)))
+
+    return cedges, line_pairs
 
 
 def slope_intercept(line):
+    line = tuple(line)
     x1, y1 = tuple(graph[line[0]].loc)
     x2, y2 = tuple(graph[line[1]].loc)
 
@@ -329,7 +323,7 @@ class Node:
         return "({} [{}]: {})".format(self.index, self.component, self.adjs)
 
 
-def build_circuit(graph, cedges, components):
+def build_circuit(graph, cedges, line_pairs, components):
     ns = []
     index_map = {}
     reverse_index_map = {}
@@ -345,13 +339,13 @@ def build_circuit(graph, cedges, components):
             return ns[index_map[o_ix]]
 
     q = deque()
-    for e, (cedge, comp_name) in enumerate(zip(cedges[0], components)):
+    for e, (cedge, comp_name) in enumerate(zip(cedges, components)):
         node = Node(len(ns), comp_name)
         ns.append(node)
         node.adjs = []
         for pt in cedge:
             corner_node = get_corner(pt)
-            for line in cedges[1][e]:
+            for line in line_pairs[e]:
                 if pt in line:
                     next_pt = line[0] if line[0] != pt else line[1]
                     next_corner = get_corner(next_pt)
@@ -384,9 +378,9 @@ def process(img):
     post_img = clean_image(img)
     corners, line_segments = detect_graph_components(post_img)
     graph = build_graph(corners, line_segments)
-    _, cedges = component_edges(graph)
-    components = classify_components(post_img, cedges[0], graph)
-    circuit = build_circuit(graph, cedges, components)
+    cedges, line_pairs = component_edges(graph)
+    components = classify_components(post_img, cedges, graph)
+    circuit = build_circuit(graph, cedges, line_pairs, components)
     return circuit
 
 
@@ -397,19 +391,22 @@ if __name__ == "__main__":
         post_img = clean_image(img)
         corners, line_segments = detect_graph_components(post_img)
         graph = build_graph(corners, line_segments)
-        leaf_sects, cedges = component_edges(graph)
-        components = classify_components(post_img, cedges[0], graph)
-        circuit = build_circuit(graph, cedges, components)
+        cedges, line_pairs = component_edges(graph)
+        components = classify_components(post_img, cedges, graph)
+        circuit = build_circuit(graph, cedges, line_pairs, components)
 
         visualize = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-        for line in cedges[0]:
-            cv2.line(visualize, tuple(graph[line[0]].loc), tuple(
-                graph[line[1]].loc), (0, 0, 255), 2)
         colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255),
                   (255, 255, 0), (0, 255, 255), (255, 0, 255)]
-        for e, n in enumerate(circuit):
-            color = colors[0]  # [e % len(colors)]
-            cv2.circle(visualize, n.loc, 6, color, -1)
+        for e, (line, lp) in enumerate(zip(cedges, line_pairs)):
+            visualize = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+            color = colors[e % len(colors)]
+            cv2.line(visualize, tuple(graph[line[0]].loc), tuple(
+                graph[line[1]].loc), color, 2)
+            for l in lp:
+                cv2.line(visualize, tuple(graph[l[0]].loc), tuple(
+                    graph[l[1]].loc), color, 2)
+            show_imgs(visualize)
 
-        print(components)
-        show_imgs(bounding_img)
+        # show_imgs(visualize)
+        # print(components)
