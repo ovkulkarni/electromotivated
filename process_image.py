@@ -261,7 +261,7 @@ def component_edges(graph, img=None):
     leaf_set = {}
 
     for conn in connecteds:
-        
+
         leaves = set()
         for v in conn:
             if len(graph[v].adjs) == 1:
@@ -314,36 +314,30 @@ def component_edges(graph, img=None):
     all_cedges = []
     all_line_pairs = []
     for la in all_edges:
-        va, sa, ia = slope_intercept(la, graph)
         for lb in all_edges:
             if edge_lset(la) & edge_lset(lb) or lb[0]*lb[1] >= la[0]*la[1]:
                 continue
 
-            vb, sb, ib = slope_intercept(lb, graph)
-            if va != vb:
-                continue
-
             # find min edge between these two lines
-            min_edge = None
-            min_edge_dist = None
-            for pta in la:
-                for ptb in lb:
-                    dis = dist(*graph[pta].loc, *graph[ptb].loc)
-                    if min_edge_dist is None or dis < min_edge_dist:
-                        min_edge_dist = dis
-                        min_edge = (pta, ptb)
+            min_edge, min_edge_dist = get_min_edge(graph, la, lb)
 
-            if min_edge_dist > 300:
+            # test for bad edges
+            bad = False
+            for pt in min_edge:
+                if depth[pt] >= 2:
+                    bad = True
+                    break
+                for a in graph[pt].adjs:
+                    if a in (la + lb):
+                        continue
+                    if a in min_edge or colinear(graph, (pt, a), min_edge):
+                        bad = True
+                        break
+
+            if min_edge_dist > 300 or bad:
                 continue
 
-            # determine if its a valid edge
-            if va:
-                dis = abs(graph[min_edge[0]].loc[0] - sb *
-                          graph[min_edge[0]].loc[1] - ib)/(sb**2 + 1)**0.5
-            else:
-                dis = abs(graph[min_edge[0]].loc[1] - sb *
-                          graph[min_edge[0]].loc[0] - ib)/(sb**2 + 1)**0.5
-            if dis/min_edge_dist < 0.5 and abs(sa - sb) ** 2 < 0.1:
+            if colinear(graph, la, lb):
                 all_cedges.append(tuple(min_edge))
                 all_line_pairs.append((tuple(la), tuple(lb)))
 
@@ -382,6 +376,39 @@ def slope_intercept(line, graph):
         slope = (y2 - y1) / (x2 - x1)
         intercept = y1 - slope*x1
     return vert, slope, intercept
+
+
+def get_min_edge(graph, la, lb):
+    min_edge = None
+    min_edge_dist = None
+    for pta in la:
+        for ptb in lb:
+            dis = dist(*graph[pta].loc, *graph[ptb].loc)
+            if min_edge_dist is None or dis < min_edge_dist:
+                min_edge_dist = dis
+                min_edge = (pta, ptb)
+
+    return min_edge, min_edge_dist
+
+
+def colinear(graph, la, lb):
+    va, sa, ia = slope_intercept(la, graph)
+    vb, sb, ib = slope_intercept(lb, graph)
+
+    if va != vb:
+        return False
+
+    # find min edge between these two lines
+    min_edge, min_edge_dist = get_min_edge(graph, la, lb)
+
+    if va:
+        dis = abs(graph[min_edge[0]].loc[0] - sb *
+                  graph[min_edge[0]].loc[1] - ib)/(sb**2 + 1)**0.5
+    else:
+        dis = abs(graph[min_edge[0]].loc[1] - sb *
+                  graph[min_edge[0]].loc[0] - ib) / (sb ** 2 + 1) ** 0.5
+
+    return (min_edge_dist < 5 or dis/min_edge_dist < 0.5) and abs(sa - sb) ** 2 < 0.1
 
 
 class Node:
@@ -458,7 +485,7 @@ def process(img):
 
 
 if __name__ == "__main__":
-    for i in range(1,18): #[15,17]:
+    for i in [8, 18]:
         img = cv2.imread("imgs/{}.JPG".format(i), 0)
         img = resize_image(img)
         # img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
@@ -484,9 +511,9 @@ if __name__ == "__main__":
             color = colors[e % len(colors)]
             cv2.line(visualize, tuple(graph[line[0]].loc), tuple(
                 graph[line[1]].loc), color, 2)
-            # for l in lp:
-            #    cv2.line(visualize, tuple(graph[l[0]].loc), tuple(
-            #        graph[l[1]].loc), color, 2)
+            for l in lp:
+                cv2.line(visualize, tuple(graph[l[0]].loc), tuple(
+                    graph[l[1]].loc), color, 2)
 
         # show_imgs(raw_img, visualize, names=["raw", str(i)])
         # print(components)
