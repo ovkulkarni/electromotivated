@@ -61,7 +61,10 @@ def identify_component(component_img, circles_component, is_horizontal):
             smallest = min((cv2.boundingRect(cnt) for cnt in real_contours),
                           key=lambda x: max(x[2], x[3]))
             if max(largest[2], largest[3]) / max(smallest[2], smallest[3]) > 1.5:
-                return 'battery'
+                if is_horizontal:
+                    return '{}battery'.format('left' if largest[0] < smallest[0] else 'right')
+                else:
+                    return '{}battery'.format('top' if largest[1] > smallest[1] else 'bottom')
             else:
                 return 'capacitor'
     return 'evan is gay'
