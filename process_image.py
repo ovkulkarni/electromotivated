@@ -11,29 +11,18 @@ def clean_image(img):
 
 
 def detect_lines(img):
-    low_threshold = 50
-    high_threshold = 150
-    img = cv2.Canny(img, low_threshold, high_threshold)
+    block_size = 2
+    aperture = 29
+    free_parameter = 0.04
+    resps = cv2.cornerHarris(img, block_size, aperture, free_parameter)
+    resps = cv2.dilate(resps, None, iterations=3)
+    threshold = 0.1
 
-    rho = 1  # distance resolution in pixels of the Hough grid
+    corners = np.copy(img)
+    corners = cv2.cvtColor(corners, cv2.COLOR_GRAY2BGR)
+    corners[resps > threshold * resps.max()] = [255, 0, 0]
 
-    theta = np.pi / 180  # angular resolution in radians of the Hough grid
-    # minimum number of votes (intersections in Hough grid cell)
-    threshold = 15
-    min_line_length = 50  # minimum number of pixels making up a line
-    max_line_gap = 20  # maximum gap in pixels between connectable line segments
-    line_img = np.copy(img) * 0  # creating a blank to draw lines on
-
-    # Run Hough on edge detected image
-    # Output "lines" is an array containing endpoints of detected line segments
-    lines = cv2.HoughLinesP(img, rho, theta, threshold, np.array([]),
-                            min_line_length, max_line_gap)
-
-    for line in lines:
-        for x1, y1, x2, y2 in line:
-            cv2.line(line_img, (x1, y1), (x2, y2), (255, 0, 0), 5)
-
-    return img
+    return corners
 
 
 def show_imgs(*imgs):
