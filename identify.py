@@ -9,24 +9,23 @@ def show_imgs(*imgs):
     cv2.destroyAllWindows()
 
 
-def identify_component(component_img, is_horizontal):
+def identify_component(component_img, circles_component, is_horizontal):
     # check for voltimeter/ammeter circles:
-    circles_img = cv2.erode(component_img, np.ones((9, 9)))
-    circles_img = cv2.morphologyEx(
-        circles_img, cv2.MORPH_CLOSE, np.ones((5, 5)), iterations=5)
-    circles_img = cv2.morphologyEx(
-        circles_img, cv2.MORPH_OPEN, np.ones((20, 20)), iterations=1)
 
-    contours, _ = cv2.findContours(circles_img, 1, 2)
+    contours, _ = cv2.findContours(circles_component, 1, 2)
     for cnt in contours:
         area = cv2.contourArea(cnt)
         arclen = cv2.arcLength(cnt, True)
+        if arclen == 0:
+            continue
         circularity = (4 * np.pi * area) / (arclen * arclen)
         if (circularity > .8):
             return 'voltimeter/ammeter'
 
     # check for resistor:
-    resistor_img = cv2.erode(component_img, np.ones((7, 7)))
+    resistor_img = cv2.morphologyEx(
+        component_img,cv2.MORPH_CLOSE, np.ones((3,3)), iterations=2)
+    resistor_img = cv2.erode(resistor_img, np.ones((7, 7)))
     # color_img = cv2.cvtColor(resistor_img, cv2.COLOR_GRAY2BGR)
 
     contours, _ = cv2.findContours(resistor_img, 1, 2)

@@ -105,10 +105,9 @@ def detect_graph_components(img):
         if arclen == 0:
             continue
         circularity = (4 * np.pi * area) / (arclen * arclen)
-        if (circularity < .75):
+        if (circularity < .8):
             cv2.drawContours(circles_img, [cnt], -1, 0, -1)
     circles_img = cv2.dilate(circles_img, np.ones((21,21)))
-
 
     _, line_img = cv2.threshold(
         line_img-(resistor_img | circles_img | inductor_mask), 2, 255, cv2.THRESH_BINARY)
@@ -162,6 +161,26 @@ def classify_components(img, cedges, graph):
         cv2.circle(img, loc[0], 15, 0, -1)
         cv2.circle(img, loc[1], 15, 0, -1)
 
+    # find the circles:
+    circles_img = cv2.morphologyEx(
+        original_img, cv2.MORPH_CLOSE, np.ones((5, 5)), iterations=3)
+
+    contours, _ = cv2.findContours(255-circles_img, 1, 2)
+    for cnt in contours:
+        if cv2.contourArea(cnt) < 5000:
+            cv2.drawContours(circles_img, [cnt], -1, 255, -1)
+    circles_img = cv2.erode(circles_img, np.ones((21,21)))
+
+    contours, _ = cv2.findContours(circles_img, 1, 2)
+    for cnt in contours:
+        area = cv2.contourArea(cnt)
+        arclen = cv2.arcLength(cnt, True)
+        if arclen == 0:
+            continue
+        circularity = (4 * np.pi * area) / (arclen * arclen)
+        if (circularity < .75):
+            cv2.drawContours(circles_img, [cnt], -1, 0, -1)
+
     # contour the image:
     components = {}
     contours, _ = cv2.findContours(img, 1, 2)
@@ -172,14 +191,22 @@ def classify_components(img, cedges, graph):
             if cv2.pointPolygonTest(cnt, mid, False) >= 0:
                 validContour = True
                 my_mid = mid
-
-        if validContour and my_mid not in components:
+        if validContour:
             x, y, w, h = cv2.boundingRect(cnt)
-            components[my_mid] = identify_component(
-                original_img[y:y+h, x:x+w], orientations[my_mid])
-            #print(components[my_mid])
-            #show_imgs(original_img[y:y+h, x:x+w])
-    return [components.get(m, 'undefined') for m in midpoints]
+            components[my_mid] = components.get(my_mid, []) + [(original_img[y:y+h, x:x+w],
+                                                                circles_img[y:y+h, x:x+w])]
+
+    to_ret = []
+    for m in midpoints:
+        if m not in components:
+            to_ret.append('undefined')
+        else:
+            min_contour = min(components[m], key=lambda x: x[0].shape[0] * x[0].shape[1])
+            to_ret.append(identify_component(*min_contour, orientations[m]))
+            # print(to_ret[-1])
+            # show_imgs(min_contour[0])
+
+    return to_ret
 
 
 def dist(x1, y1, x2, y2):
@@ -458,7 +485,7 @@ def process(img):
 
 
 if __name__ == "__main__":
-    for i in range(1,18): #[15,17]:
+    for i in range(1,19): #[15,17]:
         img = cv2.imread("imgs/{}.JPG".format(i), 0)
         img = resize_image(img)
         # img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
@@ -488,6 +515,6 @@ if __name__ == "__main__":
             #    cv2.line(visualize, tuple(graph[l[0]].loc), tuple(
             #        graph[l[1]].loc), color, 2)
 
-        # show_imgs(raw_img, visualize, names=["raw", str(i)])
+        show_imgs(raw_img, visualize, names=["raw", str(i)])
         # print(components)
-        show_imgs(visualize, names=[str(i)])
+        # show_imgs(visualize, names=[str(i)])
