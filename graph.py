@@ -150,7 +150,7 @@ def component_edges(graph, img=None):
                     bad = True
                     break
                 for a in graph[pt].adjs:
-                    if a in (la + lb):
+                    if (pt, a) in (la, lb) or (a, pt) in (la, lb):
                         continue
                     if a in min_edge or colinear(graph, (pt, a), min_edge):
                         bad = True
