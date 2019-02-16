@@ -12,7 +12,7 @@ def clean_image(img):
     return img
 
 
-def detect_lines(img):
+def detect_graph_components(img):
     block_size = 6
     aperture = 15
     free_parameter = 0.04
@@ -20,16 +20,28 @@ def detect_lines(img):
     img = cv2.erode(img, np.ones((9, 9)), iterations=1)
 
     resps = cv2.cornerHarris(img, block_size, aperture, free_parameter)
-    resps = cv2.dilate(resps, None, iterations=4)
+    resps = cv2.dilate(resps, None, iterations=8)
     threshold = 0.1
 
     img = np.copy(img)
     img[resps > threshold * resps.max()] = 0.
 
-    contours,hierarchy = cv2.findContours(img, 1, 2)
+    corner_img = img*0
+    corner_img[resps > threshold * resps.max()] = 255
+    corner_contours, _ = cv2.findContours(corner_img, 1, 2)
+    corners = []
+    for cnt in corner_contours:
+        M = cv2.moments(cnt)
+        cx = int(M['m10']/M['m00'])
+        cy = int(M['m01'] / M['m00'])
+        corners.append((cx, cy))
 
-    corners = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    contours,hierarchy = cv2.findContours(img, 1, 2)
+    line_segments = []
     for cnt in contours:
+        if cv2.contourArea(cnt) < 20:
+            continue
+
         rect = cv2.minAreaRect(cnt)
         box = cv2.boxPoints(rect)
         box = np.int0(box)
@@ -37,11 +49,11 @@ def detect_lines(img):
         p1 = box[0]
         p2 = min(box[1:], key=lambda x: np.linalg.norm(p1-x))
 
-        print(p1, p2)
+        p3, p4 = [p for p in box if not np.array_equal(p, p1) and not np.array_equal(p, p2)]
 
-        im = cv2.drawContours(corners,[box],0,(0,0,255),2)
+        line_segments.append((np.int0((p1 + p2) / 2), np.int0((p3 + p4) / 2)))
 
-    return corners
+    return corners, line_segments
 
 
 def show_imgs(*imgs):
@@ -55,5 +67,13 @@ if __name__ == "__main__":
     for i in range(1, 6):
         img = cv2.imread("imgs/{}.JPG".format(i), 0)
         post_img = clean_image(img)
-        line_img = detect_lines(post_img)
-        show_imgs(post_img, line_img)
+        corners, line_segments = detect_graph_components(post_img)
+
+        line_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+        for line in line_segments:
+            cv2.line(line_img, tuple(line[0]), tuple(line[1]), (0,0,255), 1)
+
+        for corner in corners:
+            cv2.circle(line_img, corner, 1, (255,0,0), -1)
+
+        show_imgs(img, line_img)
