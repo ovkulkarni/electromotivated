@@ -11,7 +11,6 @@ def show_imgs(*imgs):
 
 def identify_component(component_img, circles_component, is_horizontal):
     # check for voltimeter/ammeter circles:
-
     contours, _ = cv2.findContours(circles_component, 1, 2)
     for cnt in contours:
         area = cv2.contourArea(cnt)
@@ -61,5 +60,8 @@ def identify_component(component_img, circles_component, is_horizontal):
                                                        for cnt in real_contours])
             smallest = min(max(w, h) for x, y, w, h in [cv2.boundingRect(cnt)
                                                         for cnt in real_contours])
-            return 'battery' if largest / smallest > 1.5 else 'capacitor'
+            if largest / smallest > 1.5:
+                # battery:
+            else:
+                return 'capacitor'
     return 'evan is gay'
