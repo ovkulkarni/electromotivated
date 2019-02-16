@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Profile{% endblock %}
+{% block css %}
+    <link rel="stylesheet" href="{% static 'users/profile.css' %}" />
+{% endblock %}
+{% block content %}
+{% for circuit in request.user.circuit_set.all %}
+{% cycle '<div class="row">' "" "" %}
+<div class="col">
+<section class="cards">
+  <article class="card" data-uuid="{{ circuit.uuid }}">
+    <div class="card__info-hover">
+      <div class="card__clock-info">
+        </svg><span class="card__time">{{ circuit.date_created }}</span>
+      </div>
+
+    </div>
+    <div class="card__img" style="background-image: url('{% url 'circuit_image' circuit.uuid %}')'"></div>
+    <a href="#" class="card_link">
+      <div class="card__img--hover" style="background-image: url('{% url 'circuit_image' circuit.uuid %}')"></div>
+    </a>
+    <div class="card__info">
+      <span class="card__category">Circuit</span>
+      <h3 class="card__title">{{ circuit.name }}</h3>
+      <span class="card__by">by <a href="#" class="card__author" title="author">{{ circuit.user.username }}</a></span>
+    </div>
+  </article>
+</section>
+</div>
+{% cycle "" "" "</div>" %}
+{% endfor %}
+{% endblock %}
+
+{% block js %}
+<script type="text/javascript">
+    window.circuit_url = "{% url 'circuit_details_truncated' %}";
+    $('.card').click(function(e) {
+        e.preventDefault();
+        var uuid = $(this).data('uuid');
+        window.location = window.circuit_url + uuid;
+    })
+</script>
+{% endblock %}

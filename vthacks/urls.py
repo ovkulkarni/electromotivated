@@ -15,7 +15,21 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from users.views import RegistrationView, LoginView, ProfileView, LogoutView, IndexView
+from circuits.views import CircuitImageView, CircuitDetailsView, CircuitUploadView
 
 urlpatterns = [
+    path('', IndexView.as_view(), name='index'),
     path('admin/', admin.site.urls),
+    path('register/', RegistrationView.as_view(), name='register'),
+    path('login/', LoginView.as_view(), name='login'),
+    path('logout/', LogoutView.as_view(), name='logout'),
+    path('profile/', ProfileView.as_view(), name='user_profile'),
+    path('circuit/upload/', CircuitUploadView.as_view(), name='circuit_upload'),
+    path('circuit/image/<uuid:uuid>/',
+         CircuitImageView.as_view(), name='circuit_image'),
+    path('circuit/details/',
+         CircuitDetailsView.as_view(), name='circuit_details_truncated'),
+    path('circuit/details/<uuid:uuid>/',
+         CircuitDetailsView.as_view(), name='circuit_details')
 ]
