@@ -11,10 +11,14 @@ canvas {
 {% block header %}{{ circuit.name }}{% endblock %}
 {% block content %}
 <canvas class='circuit'></canvas>
+<form method="POST" id="detailsForm">
+{% csrf_token %}
+</form>
 <img src="{% url 'circuit_image' circuit.uuid %}" />
 <div class="d-none">
     <img src="{% static 'components/battery.png' %}" id='battery' />
     <img src="{% static 'components/resistor.png' %}" id='resistor' />
+    <img src="{% static 'components/capacitor.png' %}" id='capacitor' />
 </div>
 {% endblock %}
 {% block js %}
@@ -56,14 +60,14 @@ $(document).ready(function() {
     var x_range = max_x - min_x;
     var y_range = max_y - min_y;
     var canvas = document.querySelector('.circuit');
-    var canvas_width = canvas.width - 200;
-    var canvas_height = canvas.height - 200;
+    var canvas_width = canvas.width - 400;
+    var canvas_height = canvas.height - 400;
     for(var i = 0; i < elements.length; i++) {
         if(isNaN(elements[i].loc[0]))
             continue
-        elements[i].loc[0] = 100 + (elements[i].loc[0] - min_x) * (canvas_width / x_range);
+        elements[i].loc[0] = 200 + (elements[i].loc[0] - min_x) * (canvas_width / x_range);
         elements[i].loc[0] = Math.floor(elements[i].loc[0])
-        elements[i].loc[1] = 100 + (elements[i].loc[1] - min_y) * (canvas_height / y_range);
+        elements[i].loc[1] = 200 + (elements[i].loc[1] - min_y) * (canvas_height / y_range);
         elements[i].loc[1] = Math.floor(elements[i].loc[1])
     }
     var context = canvas.getContext('2d');
@@ -92,9 +96,19 @@ $(document).ready(function() {
                 }
                 context.drawImage(image, dx, dy, width, width * aspect_ratio);
             }
+            switch(elements[i].type.split("/")[0]) {
+                case "resistor":
+                    var posx = dx + (is_horizontal ? width / 3 : 50)
+                    var posy = dy + (is_horizontal ? -50 : width / 3)
+                    context.font = "60px sans-serif"
+                    context.fillText("R" + i, posx, posy)
+                    $('<input>').attr('name', 'node_' + elements[i].id).attr('placeholder', 'Enter resistance for R' + i).appendTo('#detailsForm')
+                    break;
+            }
         }
         else {
-            context.fillRect(elements[i].loc[0], elements[i].loc[1], 2, 2)
+            context.fillRect(elements[i].loc[0] - 6, elements[i].loc[1] - 6, 12, 12)
+            context.lineWidth = 12
             for(var j = 0; j < elements[i].connected_to.length; j++) {
                 var conn = elements.filter(function(x) { return x.id === elements[i].connected_to[j]})[0];
                 if(isNaN(conn.loc[0])) 
