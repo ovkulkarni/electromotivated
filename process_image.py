@@ -216,6 +216,8 @@ def dist(x1, y1, x2, y2):
 
 
 def show_imgs(*imgs, names=None):
+    if __name__ != '__main__': return
+
     for e, img in enumerate(imgs):
         name = str(e) if names is None else names[e]
         cv2.imshow(name, img)
