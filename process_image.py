@@ -177,8 +177,8 @@ def classify_components(img, cedges, graph):
             x, y, w, h = cv2.boundingRect(cnt)
             components[my_mid] = identify_component(
                 original_img[y:y+h, x:x+w], orientations[my_mid])
-            print(components[my_mid])
-            show_imgs(original_img[y:y+h, x:x+w])
+            #print(components[my_mid])
+            #show_imgs(original_img[y:y+h, x:x+w])
     return [components.get(m, 'undefined') for m in midpoints]
 
 
@@ -489,5 +489,5 @@ if __name__ == "__main__":
             #        graph[l[1]].loc), color, 2)
 
         # show_imgs(raw_img, visualize, names=["raw", str(i)])
-        print(components)
+        # print(components)
         show_imgs(visualize, names=[str(i)])
