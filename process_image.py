@@ -2,10 +2,31 @@ import cv2
 import numpy as np
 from collections import deque, namedtuple
 from unionfind import UnionFind
-from identify import identify_component
+from new_identify import identify_component
 from graph import build_graph, component_edges, build_circuit
 
-PLUSPLUSPLUS = []
+PLUSPLUSPLUS = np.array([
+    [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1],
+    [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1],
+    [1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
+    [0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0],
+    [0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0],
+    [0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0],
+    [0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0],
+    [0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0],
+    [1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
+    [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1],
+    [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1],
+]).astype(np.uint8)
 
 def resize_image(img):
     scale = np.sqrt(4e5 / (img.shape[0] * img.shape[1]))
@@ -47,7 +68,7 @@ def detect_graph_components(img):
 
     # bind together
     blob_img = img-circles_img
-    blob_img = cv2.morphologyEx(blob_img, cv2.MORPH_CLOSE, np.ones((35,35)), iterations=1)
+    blob_img = cv2.morphologyEx(blob_img, cv2.MORPH_CLOSE, np.ones((29,29)), iterations=1)
     blob_img = cv2.erode(blob_img, np.ones((9, 9)), iterations=2)
     blob_img = cv2.morphologyEx(blob_img, cv2.MORPH_CLOSE, np.ones((15,15)), iterations=1)
     blob_img = cv2.morphologyEx(blob_img, cv2.MORPH_OPEN, np.ones((10,10)), iterations=1)
@@ -58,7 +79,7 @@ def detect_graph_components(img):
 
     resps = cv2.cornerHarris(line_img, 6, 15, 0.04)
     corner_img = img*0
-    corner_img[resps > .1 * resps.max()] = 255
+    corner_img[resps > .01 * resps.max()] = 255
 
     corner_img = cv2.morphologyEx(corner_img, cv2.MORPH_CLOSE, np.ones((15,15)))
 
@@ -79,7 +100,7 @@ def detect_graph_components(img):
     corner_img *=0
     for c in corners:
         corner_img[c[1]][c[0]] = 255
-    corner_img = cv2.dilate(corner_img, np.ones((20,20)))
+    corner_img = cv2.dilate(corner_img, PLUSPLUSPLUS)
 
     line_img -= corner_img
     line_img[line_img < 10] = 0
@@ -99,6 +120,12 @@ def detect_graph_components(img):
 
         p3, p4 = [p for p in box if not np.array_equal(
             p, p1) and not np.array_equal(p, p2)]
+
+        ratio = np.linalg.norm(p1-p2) / np.linalg.norm(p2-p3)
+        if ratio < 1: ratio = 1/ratio
+
+        if ratio < 3:
+            continue
 
         line_segments.append((np.int0((p1 + p2) / 2), np.int0((p3 + p4) / 2)))
 
@@ -176,8 +203,8 @@ def classify_components(img, cedges, graph, post_sans_dilate_img):
             min_contour = min(
                 components[m], key=lambda x: x[0].shape[0] * x[0].shape[1])
             to_ret.append(identify_component(*min_contour, orientations[m]))
-            print(to_ret[-1])
-            show_imgs(min_contour[0])
+            # print(to_ret[-1])
+            # show_imgs(min_contour[0])
 
     return to_ret
 
@@ -209,7 +236,7 @@ def process(img):
 
 
 if __name__ == "__main__":
-    for i in range(1, 14):
+    for i in range(1,10):
         img = cv2.imread("imgs/{}.JPG".format(i), 0)
         img = resize_image(img)
         # img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
@@ -236,9 +263,9 @@ if __name__ == "__main__":
             cv2.line(visualize, tuple(graph[line[0]].loc), tuple(
                 graph[line[1]].loc), color, 2)
             # for l in lp:
-            #    cv2.line(visualize, tuple(graph[l[0]].loc), tuple(
-            #        graph[l[1]].loc), color, 2)
+               # cv2.line(visualize, tuple(graph[l[0]].loc), tuple(
+                   # graph[l[1]].loc), color, 2)
 
         print(components)
+        # show_imgs(raw_img, names=[str(i)])
         show_imgs(raw_img, visualize, names=["raw", str(i)])
-        # show_imgs(visualize, names=[str(i)])
