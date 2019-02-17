@@ -198,11 +198,12 @@ def show_imgs(*imgs, names=None):
 
 def process(img):
     img = resize_image(img)
-    post_img = clean_image(img)
+    post_img, post_sans_dilate_img = clean_image(img)
     corners, line_segments = detect_graph_components(post_img)
     graph = build_graph(corners, line_segments)
-    cedges, line_pairs = component_edges(graph)
-    components = classify_components(post_img, cedges, graph)
+    cedges, line_pairs = component_edges(
+        graph, cv2.cvtColor(img, cv2.COLOR_GRAY2BGR))
+    components = classify_components(post_img, cedges, graph, post_sans_dilate_img)
     circuit = build_circuit(graph, cedges, line_pairs, components)
     return circuit
 
@@ -213,7 +214,6 @@ if __name__ == "__main__":
         img = resize_image(img)
         # img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
         post_img, post_sans_dilate_img = clean_image(img)
-        detect_graph_components(post_img)
         corners, line_segments = detect_graph_components(post_img)
         graph = build_graph(corners, line_segments)
         cedges, line_pairs = component_edges(
