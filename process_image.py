@@ -5,6 +5,7 @@ from unionfind import UnionFind
 from identify import identify_component
 from graph import build_graph, component_edges, build_circuit
 
+PLUSPLUSPLUS = []
 
 def resize_image(img):
     scale = np.sqrt(4e5 / (img.shape[0] * img.shape[1]))
@@ -17,81 +18,15 @@ def clean_image(img):
     img = cv2.GaussianBlur(img, (5, 5), 0)
     img = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_MEAN_C,
                                 cv2.THRESH_BINARY_INV, 25, 30)
-    img = cv2.morphologyEx(img, cv2.MORPH_CLOSE, np.ones((7, 7)))
-    img = cv2.dilate(img, np.ones((5, 5)), iterations=2)
-    return img
+    img2 = cv2.morphologyEx(img, cv2.MORPH_CLOSE, np.ones((7, 7)))
+    img2 = cv2.dilate(img2, np.ones((5, 5)), iterations=2)
+    return img2, img
 
 
 def detect_graph_components(img):
-    block_size = 6
-    aperture = 15
-    free_parameter = 0.04
-
-    eroded_img = cv2.erode(img, np.ones((9, 9)), iterations=1)
-
-    resps = cv2.cornerHarris(eroded_img, block_size, aperture, free_parameter)
-    threshold = 0.1
-
-    corner_img = img*0
-    corner_img[resps > threshold * resps.max()] = 255
-
-    resistor_img = img*0
-    resistor_img[resps > threshold * resps.max()] = 255
-
-    circles_img = np.copy(img)
-
-    inductor_img = np.copy(img)
-
-    line_img = np.copy(eroded_img)
-    resps = cv2.dilate(resps, np.ones((9, 9)), iterations=1)
-    line_img[resps > threshold * resps.max()] = 0.
-
-    # find corners
-    corner_img = cv2.dilate(corner_img, np.ones((2, 2)), iterations=1)
-    corner_img = cv2.morphologyEx(corner_img, cv2.MORPH_CLOSE, np.ones((5, 5)))
-
-    corner_contours, _ = cv2.findContours(corner_img, 1, 2)
-    corners = []
-    for cnt in corner_contours:
-        if cv2.contourArea(cnt) < 500:
-            M = cv2.moments(cnt)
-            cx = int(M['m10']/M['m00'])
-            cy = int(M['m01'] / M['m00'])
-            corners.append((cx, cy))
-        else:
-            rect = cv2.minAreaRect(cnt)
-            box = cv2.boxPoints(rect)
-            box = np.int0(box)
-
-            for i, j in zip([0, 1, 2, 3], [1, 2, 3, 0]):
-                corners.append(tuple(np.int0((box[i] + box[j]) / 2)))
-
-    # find the resistors:
-    resistor_img = cv2.morphologyEx(
-        resistor_img, cv2.MORPH_CLOSE, np.ones((11, 11)), iterations=3)
-    resistor_img = cv2.morphologyEx(
-        resistor_img, cv2.MORPH_OPEN, np.ones((9, 9)), iterations=2)
-    resistor_img = cv2.morphologyEx(
-        resistor_img, cv2.MORPH_OPEN, np.ones((21, 21)), iterations=1)
-
-    # find the inductors:
-    inductor_img = cv2.morphologyEx(
-        inductor_img, cv2.MORPH_CLOSE, np.ones((9, 9)), iterations=2)
-    inductor_img = cv2.erode(inductor_img, np.ones((17, 17)))
-    inductor_img = cv2.morphologyEx(
-        inductor_img, cv2.MORPH_CLOSE, np.ones((21, 21)), iterations=2)
-
-    contours, _ = cv2.findContours(inductor_img, 1, 2)
-    inductor_mask = inductor_img*0
-    for cnt in contours:
-        x, y, w, h = cv2.boundingRect(cnt)
-        if (w*h > 1500):
-            cv2.drawContours(inductor_mask, [cnt], -1, 255, -1)
-    inductor_mask = cv2.dilate(inductor_mask, np.ones((9, 9)))
-
-    # find the circles:
+    # detect the circles
     circles_img = cv2.morphologyEx(
-        circles_img, cv2.MORPH_CLOSE, np.ones((5, 5)), iterations=3)
+        img, cv2.MORPH_CLOSE, np.ones((5, 5)), iterations=3)
 
     contours, _ = cv2.findContours(255-circles_img, 1, 2)
     for cnt in contours:
@@ -110,16 +45,51 @@ def detect_graph_components(img):
             cv2.drawContours(circles_img, [cnt], -1, 0, -1)
     circles_img = cv2.dilate(circles_img, np.ones((21, 21)))
 
-    _, line_img = cv2.threshold(
-        line_img-(resistor_img | circles_img | inductor_mask), 2, 255, cv2.THRESH_BINARY)
+    # bind together
+    blob_img = img-circles_img
+    blob_img = cv2.morphologyEx(blob_img, cv2.MORPH_CLOSE, np.ones((35,35)), iterations=1)
+    blob_img = cv2.erode(blob_img, np.ones((9, 9)), iterations=2)
+    blob_img = cv2.morphologyEx(blob_img, cv2.MORPH_CLOSE, np.ones((15,15)), iterations=1)
+    blob_img = cv2.morphologyEx(blob_img, cv2.MORPH_OPEN, np.ones((10,10)), iterations=1)
+    blob_img = cv2.dilate(blob_img, np.ones((29,29)))
+
+    obstacle_mask = 255 - (circles_img | blob_img)
+    line_img = cv2.erode(img&obstacle_mask, np.ones((9,9)))
+
+    resps = cv2.cornerHarris(line_img, 6, 15, 0.04)
+    corner_img = img*0
+    corner_img[resps > .1 * resps.max()] = 255
+
+    corner_img = cv2.morphologyEx(corner_img, cv2.MORPH_CLOSE, np.ones((15,15)))
+
+    corner_contours, _ = cv2.findContours(corner_img, 1, 2)
+    corners = []
+    for cnt in corner_contours:
+        if cv2.contourArea(cnt) < 500:
+            M = cv2.moments(cnt)
+            if M['m00'] != 0:
+                cx = int(M['m10']/M['m00'])
+                cy = int(M['m01'] / M['m00'])
+                corners.append((cx, cy))
+        else:
+            rect = cv2.minAreaRect(cnt)
+            box = cv2.boxPoints(rect)
+            box = np.int0(box)
+
+    corner_img *=0
+    for c in corners:
+        corner_img[c[1]][c[0]] = 255
+    corner_img = cv2.dilate(corner_img, np.ones((20,20)))
+
+    line_img -= corner_img
+    line_img[line_img < 10] = 0
 
     # find lines
     contours, _ = cv2.findContours(line_img, 1, 2)
     line_segments = []
     for cnt in contours:
-        if cv2.contourArea(cnt) < 50:
+        if cv2.contourArea(cnt) < 10:
             continue
-
         rect = cv2.minAreaRect(cnt)
         box = cv2.boxPoints(rect)
         box = np.int0(box)
@@ -135,7 +105,7 @@ def detect_graph_components(img):
     return corners, line_segments
 
 
-def classify_components(img, cedges, graph):
+def classify_components(img, cedges, graph, post_sans_dilate_img):
     locations = [(tuple(graph[line[0]].loc), tuple(graph[line[1]].loc))
                  for line in cedges]
 
@@ -195,7 +165,8 @@ def classify_components(img, cedges, graph):
         if validContour:
             x, y, w, h = cv2.boundingRect(cnt)
             components[my_mid] = components.get(my_mid, []) + [(original_img[y:y+h, x:x+w],
-                                                                circles_img[y:y+h, x:x+w])]
+                                                                circles_img[y:y+h, x:x+w],
+                                                                post_sans_dilate_img[y:y+h, x:x+w])]
 
     to_ret = []
     for m in midpoints:
@@ -205,8 +176,8 @@ def classify_components(img, cedges, graph):
             min_contour = min(
                 components[m], key=lambda x: x[0].shape[0] * x[0].shape[1])
             to_ret.append(identify_component(*min_contour, orientations[m]))
-            print(to_ret[-1])
-            show_imgs(min_contour[0])
+            # print(to_ret[-1])
+            # show_imgs(min_contour[0])
 
     return to_ret
 
@@ -237,16 +208,17 @@ def process(img):
 
 
 if __name__ == "__main__":
-    for i in range(1, 19):
+    for i in range(1, 23):
         img = cv2.imread("imgs/{}.JPG".format(i), 0)
         img = resize_image(img)
         # img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
-        post_img = clean_image(img)
+        post_img, post_sans_dilate_img = clean_image(img)
+        detect_graph_components(post_img)
         corners, line_segments = detect_graph_components(post_img)
         graph = build_graph(corners, line_segments)
         cedges, line_pairs = component_edges(
             graph, cv2.cvtColor(img, cv2.COLOR_GRAY2BGR))
-        components = classify_components(post_img, cedges, graph)
+        components = classify_components(post_img, cedges, graph, post_sans_dilate_img)
         circuit = build_circuit(graph, cedges, line_pairs, components)
 
         colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255),
@@ -267,6 +239,6 @@ if __name__ == "__main__":
             #    cv2.line(visualize, tuple(graph[l[0]].loc), tuple(
             #        graph[l[1]].loc), color, 2)
 
+        print(components)
         show_imgs(raw_img, visualize, names=["raw", str(i)])
-        # print(components)
         # show_imgs(visualize, names=[str(i)])

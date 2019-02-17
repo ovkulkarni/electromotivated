@@ -115,7 +115,7 @@ def component_edges(graph, img=None):
     for v in set().union(*connecteds):
         for a in graph[v].adjs:
             all_edges.add(frozenset([v, a]))
-    all_edges = {tuple(e) for e in all_edges}
+    all_edges = {tuple(e) for e in all_edges if len(tuple(e))==2}
 
     colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255),
               (255, 255, 0), (0, 255, 255), (255, 0, 255)]
