@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views import View
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import HttpResponse
+from django.http import HttpResponse, Http404
 
 from .models import Circuit, Node
 from .forms import CircuitForm, CommentForm
@@ -76,7 +76,12 @@ class CircuitDetailsView(LoginRequiredMixin, View):
                     x['label'] = 'ℰ<sub>{}</sub>'.format(counts['emf'])
                     counts['emf'] += 1
             nodes.append(x)
-        return render(request, 'circuits/details.html', {'circuit': circuit, 'nodes': nodes, 'labeled': list(filter(lambda x: x.get('label'), nodes))})
+        types = {}
+        for node in circuit.node_set.all():
+            if node.node_type not in types:
+                types[node.node_type] = 0
+            types[node.node_type] += 1
+        return render(request, 'circuits/details.html', {'circuit': circuit, 'nodes': nodes, 'labeled': list(filter(lambda x: x.get('label'), nodes)), 'types': types})
 
     def post(self, request, *args, **kwargs):
         uuid = kwargs.get('uuid', -1)
@@ -113,3 +118,10 @@ class CircuitUploadView(LoginRequiredMixin, View):
 
     def get(self, request, *args, **kwargs):
         return render(request, self.template_name, {'form': self.form()})
+
+
+class AnalyticsView(LoginRequiredMixin, View):
+    def get(self, request, *args, **kwargs):
+        if not request.user.is_superuser:
+            raise Http404
+        return render(request, "analytics.html", {})

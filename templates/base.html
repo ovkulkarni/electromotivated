@@ -24,6 +24,11 @@
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'circuit_upload' %}">Upload a Circuit</a>
                 </li>
+                {% if request.user.is_superuser %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'analytics' %}">Analytics</a>
+                </li>
+                {% endif %}
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'logout' %}">Log Out</a>
                 </li>
@@ -38,8 +43,8 @@
                 </ul>
             </div>
         </nav>
-        {% block ultimate_content %}
         {% include 'bg.html' %}
+        {% block ultimate_content %}
         <div class="container">
             <div class="row">
                 <div class="col content">
