@@ -16,7 +16,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from users.views import RegistrationView, LoginView, ProfileView, LogoutView, IndexView
-from circuits.views import CircuitImageView, CircuitDetailsView, CircuitUploadView
+from circuits.views import CircuitImageView, CircuitProcessedImageView, CircuitDetailsView, CircuitUploadView
 
 urlpatterns = [
     path('', IndexView.as_view(), name='index'),
@@ -28,6 +28,8 @@ urlpatterns = [
     path('circuit/upload/', CircuitUploadView.as_view(), name='circuit_upload'),
     path('circuit/image/<uuid:uuid>/',
          CircuitImageView.as_view(), name='circuit_image'),
+    path('circuit/image/<uuid:uuid>/processed/',
+         CircuitProcessedImageView.as_view(), name='circuit_image_processed'),
     path('circuit/details/',
          CircuitDetailsView.as_view(), name='circuit_details_truncated'),
     path('circuit/details/<uuid:uuid>/',

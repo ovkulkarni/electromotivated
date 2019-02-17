@@ -10,6 +10,9 @@ from process_image import process
 
 from cv2 import imread
 
+from render_circuit import render_image
+import re
+
 
 class CircuitImageView(LoginRequiredMixin, View):
     def get(self, request, *args, **kwargs):
@@ -20,65 +23,31 @@ class CircuitImageView(LoginRequiredMixin, View):
         return resp
 
 
-def get_range(out, k):
-    return max(node.loc[k] for index, node in out if node.loc) - min(node.loc[k] for index, node in out if node.loc)
+class CircuitProcessedImageView(LoginRequiredMixin, View):
+    def get(self, request, *args, **kwargs):
+        uuid = kwargs.get('uuid', -1)
+        circuit = get_object_or_404(Circuit, uuid=uuid)
+        if not circuit.processed_image:
+            new_fn = '{}.processed.svg'.format(
+                circuit.original_image.path.rsplit('.', 1)[0])
+            render_image(circuit.original_image.path, new_fn)
+            circuit.processed_image = new_fn
+            circuit.save()
+        resp = HttpResponse()
+        resp.content = re.sub(r'height=".*?"', 'height="95%"', re.sub(r'width=".*?"', 'width="100%"', circuit.processed_image.read().decode().replace(
+            '<svg', '<svg preserveAspectRatio="xMidYMin"'))).encode()
+        return resp
+
 
 class CircuitDetailsView(LoginRequiredMixin, View):
-
     def get(self, request, *args, **kwargs):
         uuid = kwargs.get('uuid', -1)
         circuit = get_object_or_404(Circuit, uuid=uuid)
         s = ""
         if circuit.node_set.count() == 0:
-            indices = {}
             out = process(imread(circuit.original_image.path, 0))
-            for i in range(len(out)):
-                indices[i] = out[i]
             for node in out:
                 node.loc = list(node.loc) if node.loc else None
-            out.sort(key=lambda l: l.loc[0] if l.loc else 9999999)
-            a = []
-            for i in range(len(out)):
-                if out[i].loc:
-                    a.append((i, out[i]))
-                else: break
-                if get_range(a, 0) <= 75:
-                    continue
-                b = a[:-1]
-                avg = sum(node.loc[0] for index, node in b) // len(b)
-                print(avg)
-                for index, node in b:
-                    out[index].loc[0] = avg 
-                a = [a[-1]]
-            if a:
-                b = a[:]
-                avg = sum(node.loc[0] for index, node in b) // len(b)
-                print(avg)
-                for index, node in b:
-                    out[index].loc[0] = avg
-            out.sort(key=lambda l: l.loc[1] if l.loc else 9999999)
-            a = []
-            for i in range(len(out)):
-                if out[i].loc:
-                    a.append((i, out[i]))
-                else: break
-                if get_range(a, 1) <= 75:
-                    continue
-                b = a[:-1]
-                avg = sum(node.loc[1] for index, node in b) // len(b)
-                print(avg)
-                for index, node in b:
-                    out[index].loc[1] = avg 
-                a = [a[-1]]
-            if a:
-                b = a[:]
-                avg = sum(node.loc[1] for index, node in b) // len(b)
-                print(avg)
-                for index, node in b:
-                    out[index].loc[1] = avg
-            for i in indices:   
-                out[i] = indices[i]
-                print(out[i].loc)
             for node in out:
                 node.object = Node.objects.create(
                     circuit=circuit, node_type=node.component, x=node.loc[0] if node.loc else None, y=node.loc[1] if node.loc else None)
