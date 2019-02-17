@@ -7,10 +7,10 @@ cols = ['Username', 'Project Name', 'Timestamp', '# of Components', '# of Batter
 events = []
 
 u_list = open('usernames.txt').read().splitlines()
-for i in range(31428):
+for i in range(5428):
 	events.append([random.choice(u_list)])
 
-for i in range(31428):
+for i in range(5428):
 	events[i].append(generate_slug())
 	events[i].append(str(datetime.datetime.fromtimestamp(time.time() + random.randint(-1000000, 1000000)).strftime('%Y-%m-%d %H:%M:%S')))
 	comp = [random.randint(0, 100) for _ in range(4)]
