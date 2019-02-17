@@ -77,11 +77,13 @@ class CircuitDetailsView(LoginRequiredMixin, View):
                     counts['emf'] += 1
             nodes.append(x)
         types = {}
-        for node in circuit.node_set.all():
-            if node.node_type not in types:
-                types[node.node_type] = 0
-            types[node.node_type] += 1
-        return render(request, 'circuits/details.html', {'circuit': circuit, 'nodes': nodes, 'labeled': list(filter(lambda x: x.get('label'), nodes)), 'types': types})
+        for node in circuit.node_set.exclude(node_type="corner"):
+            if node.node_type.replace('right', '').replace('left', '').replace('top', '').replace('bottom', '') not in types:
+                types[node.node_type.replace('right', '').replace(
+                    'left', '').replace('top', '').replace('bottom', '')] = 0
+            types[node.node_type.replace('right', '').replace(
+                'left', '').replace('top', '').replace('bottom', '')] += 1
+        return render(request, 'circuits/details.html', {'circuit': circuit, 'nodes': nodes, 'labeled': list(filter(lambda x: x.get('label'), nodes)), 'types': types.items()})
 
     def post(self, request, *args, **kwargs):
         uuid = kwargs.get('uuid', -1)

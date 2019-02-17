@@ -53,114 +53,159 @@ a.social-link{
     font-size: 1.5rem;
 }
 .skills {
-  animation-name: skills;
-}
-.statsRow {
-  overflow: hidden;
+  width: 80%;
+  max-width: 960px;
   position: relative;
+}
+
+.lines {
   height: 100%;
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-section {
-}
-section article.skills {
-  width: 500px;
-  height: auto;
-}
-section article.skills p {
-  z-index: 2;
-  color: #fff;
-  padding: 10px;
   position: relative;
-  box-sizing: border-box;
-  overflow: hidden;
 }
-section article.skills div span:nth-child(1) {
-  z-index: -2;
+
+.line {
+  height: inherit;
+  width: 2px;
+  position: absolute;
+  background: rgba(238, 238, 238, 0.6);
+}
+.line.l--0 {
+  left: 0;
+}
+.line.l--25 {
+  left: 25%;
+}
+.line.l--50 {
+  left: 50%;
+}
+.line.l--75 {
+  left: 75%;
+}
+.line.l--100 {
+  left: calc(100% - 1px);
+}
+
+.line__label {
+  display: block;
+  width: 100px;
+  text-align: center;
+  position: absolute;
+  bottom: -20px;
+  right: -50px;
+}
+.line__label.title {
+  text-transform: uppercase;
+  font-weight: bold;
+}
+
+.charts {
+  width: 100%;
   position: absolute;
   top: 0;
-  bottom: 0;
   left: 0;
-  right: 0;
-  margin: auto;
-  height: 100%;
-  width: 100%;
+  z-index: 10;
 }
-section article.skills div span:nth-child(2) {
-  z-index: -1;
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: #5E95E8;
-  height: 100%;
+
+.chart {
+  margin: 30px 0 0;
 }
-section article.skills div:nth-child(1) span:nth-child(2) {
-  width: 90%;
-  animation-delay: 0;
+.chart:first-child {
+  margin: 0;
 }
-section article.skills div:nth-child(2) span:nth-child(2) {
-  width: 90%;
-  animation-delay: 0.05s;
+
+.chart__title {
+  display: block;
+  margin: 0 0 10px;
+  font-weight: bold;
+  opacity: 0;
+  animation: 1s anim-lightspeed-in ease forwards;
 }
-section article.skills div:nth-child(3) span:nth-child(2) {
-  width: 80%;
-  animation-delay: 0.1s;
+.chart--prod .chart__title {
+  animation-delay: 3.3s;
 }
-section article.skills div:nth-child(4) span:nth-child(2) {
-  width: 70%;
-  animation-delay: 0.15s;
+.chart--design .chart__title {
+  animation-delay: 4.5s;
 }
-section article.skills div:nth-child(5) span:nth-child(2) {
-  width: 75%;
-  animation-delay: 0.2s;
+
+.chart--horiz {
+  overflow: hidden;
 }
-section article.skills div:nth-child(6) span:nth-child(2) {
-  width: 60%;
-  animation-delay: 0.25s;
+
+ul {
+    list-style-type: none;
 }
-section article.skills div:nth-child(7) span:nth-child(2) {
-  width: 80%;
-  animation-delay: 0.3s;
+
+.chart__bar {
+  height: 30px;
+  margin-bottom: 10px;
+  background: linear-gradient(to left, #4cb8c4, #3cd3ad);
+  border-top-right-radius: 4px;
+  border-bottom-right-radius: 4px;
+  opacity: 0;
+  animation: 1s anim-lightspeed-in ease forwards;
 }
-section article.skills div:nth-child(8) span:nth-child(2) {
-  width: 75%;
-  animation-delay: 0.35s;
+.chart--dev .chart__bar:nth-of-type(11) {
+  animation-delay: 2.7s;
 }
-section:before {
-  position: absolute;
-  top: -250px;
-  left: -350px;
-  width: 500px;
-  height: 500px;
-  content: '';
-  background: rgba(108, 90, 232, 0.25);
-  transform: rotate(30deg);
+.chart--dev .chart__bar:nth-of-type(10) {
+  animation-delay: 2.5s;
 }
-section:after {
-  position: absolute;
-  bottom: -250px;
-  right: -350px;
-  width: 500px;
-  height: 500px;
-  content: '';
-  background: rgba(108, 90, 232, 0.25);
-  transform: rotate(30deg);
+.chart--dev .chart__bar:nth-of-type(9) {
+  animation-delay: 2.3s;
 }
-.skills {
-  animation: skills 1.25s cubic-bezier(0.17, 0.67, 0, 1);
+.chart--dev .chart__bar:nth-of-type(8) {
+  animation-delay: 2.1s;
 }
-@keyframes skills {
+.chart--dev .chart__bar:nth-of-type(7) {
+  animation-delay: 1.9s;
+}
+.chart--dev .chart__bar:nth-of-type(6) {
+  animation-delay: 1.7s;
+}
+.chart--dev .chart__bar:nth-of-type(5) {
+  animation-delay: 1.5s;
+}
+.chart--dev .chart__bar:nth-of-type(4) {
+  animation-delay: 1.3s;
+}
+.chart--dev .chart__bar:nth-of-type(3) {
+  animation-delay: 1.1s;
+}
+.chart--dev .chart__bar:nth-of-type(2) {
+  animation-delay: 0.9s;
+}
+.chart--dev .chart__bar:nth-of-type(1) {
+  animation-delay: 0.7s;
+}
+.chart--prod .chart__bar:nth-of-type(2) {
+  animation-delay: 4.2s;
+}
+.chart--prod .chart__bar:nth-of-type(1) {
+  animation-delay: 4s;
+}
+.chart--design .chart__bar:nth-of-type(3) {
+  animation-delay: 5.6s;
+}
+.chart--design .chart__bar:nth-of-type(2) {
+  animation-delay: 5.4s;
+}
+.chart--design .chart__bar:nth-of-type(1) {
+  animation-delay: 5.2s;
+}
+
+.chart__label {
+  padding-left: 10px;
+  line-height: 30px;
+  color: white;
+}
+
+@keyframes anim-lightspeed-in {
   0% {
-    left: -500px;
-    opacity: 0;
+    transform: translateX(-200%);
+    opacity: 1;
   }
   100% {
-    left: 0;
+    transform: translateX(0);
     opacity: 1;
   }
 }
@@ -240,6 +285,27 @@ section:after {
         {% endfor %}
     </div>
 </div>
+<div class="row">
+    <h4>Component Counts</h4>
+</div>
+<div class="row">
+    <div class="skills">
+    <div class="charts">
+        <div class="chart chart--dev">
+        <ul class="chart--horiz">
+            {% for type, num in types %}
+            <li class="chart__bar" style="width: {% widthratio num 8 100 %}%;" data-toggle="tooltip" title="{{ num }}">
+            <span class="chart__label">
+                {{ type }}
+            </span>
+            </li>
+            {% endfor %}
+        </ul>
+        </div>
+    </div>
+    </div>
+</div>
+
 {% endblock %}
 {% block js %}
 <script>
