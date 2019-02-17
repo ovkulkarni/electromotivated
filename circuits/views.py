@@ -62,18 +62,19 @@ class CircuitDetailsView(LoginRequiredMixin, View):
         }
         for node in circuit.node_set.all():
             x = {'obj': node}
-            if node.node_type == "resistor":
-                x['label'] = 'R<sub>{}</sub>'.format(counts['resistor'])
-                counts['resistor'] += 1
-            if node.node_type == "inductor":
-                x['label'] = 'L<sub>{}</sub>'.format(counts['inductor'])
-                counts['inductor'] += 1
-            if node.node_type == "capacitor":
-                x['label'] = 'C<sub>{}</sub>'.format(counts['capacitor'])
-                counts['capacitor'] += 1
-            if node.node_type.endswith("battery"):
-                x['label'] = 'ℰ<sub>{}</sub>'.format(counts['emf'])
-                counts['emf'] += 1
+            if request.user == circuit.user or request.user.is_superuser:
+                if node.node_type == "resistor":
+                    x['label'] = 'R<sub>{}</sub>'.format(counts['resistor'])
+                    counts['resistor'] += 1
+                if node.node_type == "inductor":
+                    x['label'] = 'L<sub>{}</sub>'.format(counts['inductor'])
+                    counts['inductor'] += 1
+                if node.node_type == "capacitor":
+                    x['label'] = 'C<sub>{}</sub>'.format(counts['capacitor'])
+                    counts['capacitor'] += 1
+                if node.node_type.endswith("battery"):
+                    x['label'] = 'ℰ<sub>{}</sub>'.format(counts['emf'])
+                    counts['emf'] += 1
             nodes.append(x)
         return render(request, 'circuits/details.html', {'circuit': circuit, 'nodes': nodes, 'labeled': list(filter(lambda x: x.get('label'), nodes))})
 
@@ -86,13 +87,14 @@ class CircuitDetailsView(LoginRequiredMixin, View):
             cmt.user = request.user
             cmt.circuit = circuit
             cmt.save()
-        for field in request.POST:
-            if field.startswith("node"):
-                pk = int(field.split("_")[-1])
-                node = get_object_or_404(Node, pk=pk)
-                if node.circuit == circuit:
-                    node.value = request.POST.get(field)
-                    node.save()
+        if circuit.user == request.user or request.user.is_superuser:
+            for field in request.POST:
+                if field.startswith("node"):
+                    pk = int(field.split("_")[-1])
+                    node = get_object_or_404(Node, pk=pk)
+                    if node.circuit == circuit:
+                        node.value = request.POST.get(field)
+                        node.save()
         return redirect("/circuit/details/{}/".format(circuit.uuid))
 
 
