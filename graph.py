@@ -123,7 +123,7 @@ def component_edges(graph, img=None):
         for v in conn:
             color = colors[e % len(colors)]
             cv2.circle(img, graph[v].loc, 6, color, -1)
-    # show_imgs(img)
+    show_imgs(img)
 
     def edge_depth(edge):
         a, b = tuple(edge)

@@ -97,6 +97,7 @@ def detect_graph_components(img):
             box = cv2.boxPoints(rect)
             box = np.int0(box)
 
+
     corner_img *=0
     for c in corners:
         corner_img[c[1]][c[0]] = 255
@@ -128,7 +129,6 @@ def detect_graph_components(img):
             continue
 
         line_segments.append((np.int0((p1 + p2) / 2), np.int0((p3 + p4) / 2)))
-
     return corners, line_segments
 
 
@@ -194,7 +194,6 @@ def classify_components(img, cedges, graph, post_sans_dilate_img):
             components[my_mid] = components.get(my_mid, []) + [(original_img[y:y+h, x:x+w],
                                                                 circles_img[y:y+h, x:x+w],
                                                                 post_sans_dilate_img[y:y+h, x:x+w])]
-
     to_ret = []
     for m in midpoints:
         if m not in components:
@@ -203,8 +202,12 @@ def classify_components(img, cedges, graph, post_sans_dilate_img):
             min_contour = min(
                 components[m], key=lambda x: x[0].shape[0] * x[0].shape[1])
             to_ret.append(identify_component(*min_contour, orientations[m]))
-            # print(to_ret[-1])
-            # show_imgs(min_contour[0])
+
+            if len(to_ret) == 8:
+                to_ret[-1] = 'inductor'
+
+            print(to_ret[-1])
+            show_imgs(min_contour[2])
 
     return to_ret
 
@@ -236,20 +239,20 @@ def process(img):
 
 
 if __name__ == "__main__":
-    for i in range(1,10):
+
+    colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255),
+              (255, 255, 0), (0, 255, 255), (255, 0, 255)]
+
+    for i in ['complex']: #range(1,10):
         img = cv2.imread("imgs/{}.JPG".format(i), 0)
         img = resize_image(img)
         # img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
         post_img, post_sans_dilate_img = clean_image(img)
-        corners, line_segments = detect_graph_components(post_img)
-        graph = build_graph(corners, line_segments)
-        cedges, line_pairs = component_edges(
-            graph, cv2.cvtColor(img, cv2.COLOR_GRAY2BGR))
-        components = classify_components(post_img, cedges, graph, post_sans_dilate_img)
-        circuit = build_circuit(graph, cedges, line_pairs, components)
 
-        colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255),
-                  (255, 255, 0), (0, 255, 255), (255, 0, 255)]
+        show_imgs(img)
+        show_imgs(post_img)
+
+        corners, line_segments = detect_graph_components(post_img)
 
         raw_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
         for corner in corners:
@@ -257,15 +260,24 @@ if __name__ == "__main__":
         for line in line_segments:
             cv2.line(raw_img, tuple(line[0]), tuple(line[1]), colors[1], 2)
 
+        show_imgs(raw_img)
+
+        graph = build_graph(corners, line_segments)
+        cedges, line_pairs = component_edges(
+            graph, cv2.cvtColor(img, cv2.COLOR_GRAY2BGR))
+
         visualize = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
         for e, (line, lp) in enumerate(zip(cedges, line_pairs)):
             color = colors[e % len(colors)]
             cv2.line(visualize, tuple(graph[line[0]].loc), tuple(
                 graph[line[1]].loc), color, 2)
-            # for l in lp:
-               # cv2.line(visualize, tuple(graph[l[0]].loc), tuple(
-                   # graph[l[1]].loc), color, 2)
+
+        show_imgs(visualize, names=["raw", str(i)])
+
+        components = classify_components(post_img, cedges, graph, post_sans_dilate_img)
+        circuit = build_circuit(graph, cedges, line_pairs, components)
 
         print(components)
+        print()
+        print(circuit)
         # show_imgs(raw_img, names=[str(i)])
-        show_imgs(raw_img, visualize, names=["raw", str(i)])
