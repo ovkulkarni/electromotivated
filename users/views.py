@@ -32,6 +32,8 @@ class LogoutView(AuthLogoutView):
 
 class ProfileView(LoginRequiredMixin, View):
     def get(self, request, *args, **kwargs):
+        if not request.user.circuit_set.exists():
+            return redirect("circuit_upload")
         return render(request, 'users/profile.html', {})
 
 
