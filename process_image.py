@@ -176,8 +176,8 @@ def classify_components(img, cedges, graph, post_sans_dilate_img):
             min_contour = min(
                 components[m], key=lambda x: x[0].shape[0] * x[0].shape[1])
             to_ret.append(identify_component(*min_contour, orientations[m]))
-            # print(to_ret[-1])
-            # show_imgs(min_contour[0])
+            print(to_ret[-1])
+            show_imgs(min_contour[0])
 
     return to_ret
 
@@ -209,7 +209,7 @@ def process(img):
 
 
 if __name__ == "__main__":
-    for i in range(1, 23):
+    for i in range(1, 14):
         img = cv2.imread("imgs/{}.JPG".format(i), 0)
         img = resize_image(img)
         # img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
