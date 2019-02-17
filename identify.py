@@ -19,7 +19,7 @@ def identify_component(component_img, circles_component, sans_dilate, is_horizon
             continue
         circularity = (4 * np.pi * area) / (arclen * arclen)
         if (circularity > .8):
-            return 'voltimeter/ammeter'
+            return 'voltmeter'
 
     # check for diode
 
@@ -30,7 +30,7 @@ def identify_component(component_img, circles_component, sans_dilate, is_horizon
 
     if len(contours) == 1:
         resistor_img = cv2.morphologyEx(sans_dilate, cv2.MORPH_OPEN,
-            np.ones((2,15) if is_horizontal else (15,2)))
+                                        np.ones((2, 15) if is_horizontal else (15, 2)))
         contours, _ = cv2.findContours(resistor_img, 1, 2)
         return 'inductor' if len(contours) > 2 else 'resistor'
 
@@ -43,9 +43,11 @@ def identify_component(component_img, circles_component, sans_dilate, is_horizon
         if ratio > 4:
             return 'switch'
         elif ratio > 2:
-            switch_img = component_img #cv2.dilate(component_img, np.ones((5, 5)))
+            # cv2.dilate(component_img, np.ones((5, 5)))
+            switch_img = component_img
             sym_img = cv2.flip(component_img, 0 if is_horizontal else 1)
-            sym_score = cv2.countNonZero(switch_img & sym_img) / cv2.countNonZero(switch_img)
+            sym_score = cv2.countNonZero(
+                switch_img & sym_img) / cv2.countNonZero(switch_img)
             if sym_score < 0.5:
                 return 'switch'
 
@@ -58,7 +60,7 @@ def identify_component(component_img, circles_component, sans_dilate, is_horizon
             largest = max((cv2.boundingRect(cnt) for cnt in real_contours),
                           key=lambda x: max(x[2], x[3]))
             smallest = min((cv2.boundingRect(cnt) for cnt in real_contours),
-                          key=lambda x: max(x[2], x[3]))
+                           key=lambda x: max(x[2], x[3]))
             if max(largest[2], largest[3]) / max(smallest[2], smallest[3]) > 1.5:
                 if is_horizontal:
                     return '{}battery'.format('left' if largest[0] < smallest[0] else 'right')

@@ -33,5 +33,5 @@ urlpatterns = [
     path('circuit/details/',
          CircuitDetailsView.as_view(), name='circuit_details_truncated'),
     path('circuit/details/<uuid:uuid>/',
-         CircuitDetailsView.as_view(), name='circuit_details')
+         CircuitDetailsView.as_view(), name='circuit_details'),
 ]

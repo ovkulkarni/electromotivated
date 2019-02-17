@@ -11,10 +11,63 @@
 {% block title %}Details for {{ circuit.name }}{% endblock %}
 {% block header %}{{ circuit.name }}{% endblock %}
 {% block content %}
-<form method="POST" id="detailsForm">
-{% csrf_token %}
-</form>
 <object id="processedSvg" type="image/svg+xml" data="{% url 'circuit_image_processed' circuit.uuid %}" ></object>
+<div class="row">
+    <div class="col-xs-12 col-md-3">
+        <form method="POST" id="detailsForm">
+            {% csrf_token %}
+            {% if labeled %}
+            <h4>Enter values here:</h4>
+            {% endif %}
+            {% for node in labeled %}
+                {% cycle '<div class="row">' '' %}
+                <div class="col-md-6 col-sm-12 col-xs-12">
+                    <label for="node_{{ node.obj.pk }}">Value for {{ node.label|safe }}</label>
+                    <input id="node_{{ node.obj.pk }}" type="number" class="form-control" placeholder="" name="node_{{ node.obj.pk }}" value="{{ node.obj.value }}">
+                </div>
+                {% cycle '' '</div>'%}
+                {% if forloop.last and not forloop.counter|divisibleby:"2" %}
+                </div>
+                {% endif %}
+            {% endfor %}
+            <div class='row'>
+                <div class="col">
+                    <button type="submit" class="btn btn-success">Save Values</button>
+                </div>
+            </div>
+        </form>
+    </div>
+    <div class="col">
+        <div class="row">
+            <div class="col">
+                <h4>Leave a comment:</h4>
+                <form method="POST" id="commentForm">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="commentContent">Comment</label>
+                    <textarea class="form-control" id="commentContent" rows="3" name="content"></textarea>
+                </div>
+                <div class='row'>
+                    <div class="col">
+                        <button type="submit" class="btn btn-secondary">Submit Comment</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% for comment in circuit.comment_set.all %}
+        <div class="row">
+            <div class="col">
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="card-subtitle mb-2 text-muted">{{ comment.user.username }} @ {{ comment.date }}</h6>
+                        <p class="card-text">{{ comment.content }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
 {% endblock %}
 {% block js %}
 {% endblock %}

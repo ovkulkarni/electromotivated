@@ -7,6 +7,10 @@
     height: calc(80% + 56px);
     overflow-y: scroll;
     margin-top: 2rem;
+    background: url('https://introctf.sites.tjhsst.edu/background.png')
+}
+nav {
+    background: url('https://introctf.sites.tjhsst.edu/background.png')
 }
 
 html {

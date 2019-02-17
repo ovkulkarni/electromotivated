@@ -16,7 +16,7 @@ def align_points(out, k):
             break
         working.append((i, out[i]))
         k_coords = [node.loc[k] for index, node in working if node.loc]
-        if max(k_coords) - min(k_coords) <= 75:
+        if max(k_coords) - min(k_coords) <= 80:
             continue
         avg = sum(node.loc[k]
                   for index, node in working[:-1]) // len(working[:-1])
@@ -63,9 +63,9 @@ def render_image(fn, out_fn):
             if other.loc == node.loc:
                 if component.is_horizontal:
                     if other.loc[0] > node.loc[0]:
-                        node.loc[0] -= 40
-                    else:
                         node.loc[0] += 40
+                    else:
+                        node.loc[0] -= 40
                 else:
                     if other.loc[1] > node.loc[1]:
                         node.loc[1] += 40
@@ -78,7 +78,9 @@ def render_image(fn, out_fn):
                 (0.5 + (node.loc[1] - min_y) * (HEIGHT / y_range))
     counts = {
         'resistor': 1,
-        'capacitor': 1
+        'capacitor': 1,
+        'inductor': 1,
+        'emf': 1
     }
     for node in out:
         connections = [out[x] for x in node.adjs]
@@ -89,21 +91,37 @@ def render_image(fn, out_fn):
             else:
                 start = min(connections, key=lambda l: l.loc[1])
                 end = max(connections, key=lambda l: l.loc[1])
-            if node.component == "resistor/inductor":
+            if node.component == "resistor":
                 d.add(e.RES, xy=start.loc, to=end.loc,
-                      label='R{}'.format(counts['resistor']))
+                      label='$R_{}$'.format(counts['resistor']))
                 counts['resistor'] += 1
+            if node.component == "inductor":
+                d.add(e.INDUCTOR2, xy=start.loc, to=end.loc,
+                      label='$L_{}$'.format(counts['inductor']))
+                counts['inductor'] += 1
             if node.component == "rightbattery" or node.component == "bottombattery":
-                d.add(e.BATTERY, xy=end.loc, to=start.loc)
+                d.add(e.BATTERY, xy=end.loc, to=start.loc,
+                      label='$ℰ_{}$'.format(counts['emf']))
+                counts['emf'] += 1
             if node.component == "leftbattery" or node.component == "topbattery":
-                d.add(e.BATTERY, xy=start.loc, to=end.loc)
+                d.add(e.BATTERY, xy=start.loc, to=end.loc,
+                      label='$ℰ_{}$'.format(counts['emf']))
+                counts['emf'] += 1
             if node.component == "capacitor":
                 d.add(e.CAP, xy=start.loc, to=end.loc,
-                      label='R{}'.format(counts['capacitor']))
+                      label='$C_{}$'.format(counts['capacitor']))
                 counts['capacitor'] += 1
+            if node.component == "switch":
+                d.add(e.SWITCH_SPST, xy=start.loc, to=end.loc)
+            if node.component == "voltmeter":
+                d.add(e.METER_V, xy=start.loc, to=end.loc)
         else:
             for conn in connections:
                 if conn.loc:
                     d.add(e.LINE, endpts=[node.loc, conn.loc])
     d.draw()
     d.save(out_fn)
+
+
+if __name__ == "__main__":
+    render_image('uploads/IMG_0095.JPG', 'out.svg')
