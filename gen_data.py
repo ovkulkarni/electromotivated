@@ -1,3 +1,5 @@
+# Sample data for Microstrategy Dossiers
+
 from coolname import generate_slug
 import time
 import datetime
