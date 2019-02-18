@@ -13,7 +13,7 @@ for i in range(5428):
 for i in range(5428):
 	events[i].append(generate_slug())
 	events[i].append(str(datetime.datetime.fromtimestamp(time.time() + random.randint(-1000000, 1000000)).strftime('%Y-%m-%d %H:%M:%S')))
-	comp = [random.randint(0, 100) for _ in range(4)]
+	comp = [random.randint(0, 100) for _ in range(6)]
 	events[i].append(sum(comp))
 	events[i] += comp
 	avg_cur = random.uniform(0, 100)
